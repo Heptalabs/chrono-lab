@@ -13,8 +13,4 @@ services:
       - key: SESSION_SECRET
         generateValue: true
       - key: DB_PATH
-        value: /var/data/chronolab.db
-    disk:
-      name: chrono-lab-data
-      mountPath: /var/data
-      sizeGB: 1
+        value: /tmp/chronolab.db
