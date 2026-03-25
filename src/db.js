@@ -11,9 +11,12 @@ export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+export const SHOP_PRODUCT_GROUPS = ['공장제', '젠파츠', '현지중고'];
+
 const defaultMenus = [
   { id: 'home', labelKo: '메인페이지', labelEn: 'Main', path: '/main' },
   { id: 'notice', labelKo: '공지사항', labelEn: 'Notice', path: '/notice' },
+  { id: 'news', labelKo: '뉴스', labelEn: 'News', path: '/news' },
   { id: 'shop', labelKo: '쇼핑몰', labelEn: 'Shop', path: '/shop' },
   { id: 'qc', labelKo: 'QC', labelEn: 'QC', path: '/qc' },
   { id: 'review', labelKo: '구매후기', labelEn: 'Reviews', path: '/review' },
@@ -46,6 +49,76 @@ function upsertMetric(key, value = 0) {
   db.prepare('INSERT OR IGNORE INTO metrics (metric_key, metric_value) VALUES (?, ?)').run(key, value);
 }
 
+function normalizePath(pathValue = '') {
+  let nextPath = String(pathValue || '').trim();
+  if (!nextPath) {
+    return '/main';
+  }
+
+  if (!nextPath.startsWith('/')) {
+    nextPath = `/${nextPath}`;
+  }
+
+  if (nextPath === '/') nextPath = '/main';
+  if (nextPath === '/notices') nextPath = '/notice';
+  if (nextPath === '/reviews') nextPath = '/review';
+  if (nextPath === '/inquiries') nextPath = '/inquiry';
+
+  return nextPath;
+}
+
+function normalizeMenus(rawMenus) {
+  let parsed = [];
+  try {
+    const maybeParsed = JSON.parse(rawMenus);
+    if (Array.isArray(maybeParsed)) {
+      parsed = maybeParsed;
+    }
+  } catch {
+    parsed = [];
+  }
+
+  const filtered = parsed
+    .filter((menu) => menu && typeof menu === 'object')
+    .map((menu, idx) => ({
+      id: String(menu.id || `custom-${idx + 1}`),
+      labelKo: String(menu.labelKo || menu.labelEn || `메뉴${idx + 1}`),
+      labelEn: String(menu.labelEn || menu.labelKo || `Menu${idx + 1}`),
+      path: normalizePath(menu.path)
+    }))
+    .filter((menu) => !menu.path.startsWith('/admin'));
+
+  const usedByDefault = new Set();
+  const coreMenus = defaultMenus.map((defaultMenu) => {
+    const foundIndex = filtered.findIndex(
+      (menu) => menu.id === defaultMenu.id || normalizePath(menu.path) === defaultMenu.path
+    );
+
+    if (foundIndex >= 0) {
+      usedByDefault.add(foundIndex);
+      return {
+        ...defaultMenu,
+        labelKo: filtered[foundIndex].labelKo || defaultMenu.labelKo,
+        labelEn: filtered[foundIndex].labelEn || defaultMenu.labelEn
+      };
+    }
+
+    return { ...defaultMenu };
+  });
+
+  const extras = filtered.filter((_, idx) => !usedByDefault.has(idx));
+  return [...coreMenus, ...extras];
+}
+
+function ensureProductsCategoryColumn() {
+  const columns = db.prepare('PRAGMA table_info(products)').all();
+  const hasCategoryGroup = columns.some((column) => column.name === 'category_group');
+
+  if (!hasCategoryGroup) {
+    db.prepare("ALTER TABLE products ADD COLUMN category_group TEXT NOT NULL DEFAULT '공장제'").run();
+  }
+}
+
 function ensureAdminUser() {
   const countRow = db.prepare('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1').get();
   if (countRow.count > 0) {
@@ -61,15 +134,30 @@ function ensureAdminUser() {
   ).run('admin@chronolab.local', 'admin', passwordHash);
 }
 
-function seedProducts() {
-  const countRow = db.prepare('SELECT COUNT(*) AS count FROM products').get();
-  if (countRow.count > 0) {
-    return;
+function ensureDemoMemberUser() {
+  const existing = db.prepare('SELECT id FROM users WHERE username = ? LIMIT 1').get('demo_member');
+  if (existing) {
+    return Number(existing.id);
   }
 
+  const passwordHash = bcrypt.hashSync('Demo1234', 10);
+  const inserted = db
+    .prepare(
+      `
+        INSERT INTO users (email, username, password_hash, agreed_terms, is_admin)
+        VALUES (?, ?, ?, 1, 0)
+      `
+    )
+    .run('demo@chronolab.local', 'demo_member', passwordHash);
+
+  return Number(inserted.lastInsertRowid);
+}
+
+function seedProducts() {
   const insert = db.prepare(
     `
       INSERT INTO products (
+        category_group,
         brand,
         model,
         sub_model,
@@ -85,46 +173,49 @@ function seedProducts() {
         price,
         shipping_period,
         image_path
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
   );
 
   const rows = [
     [
+      '공장제',
       'Rolex',
       'Submariner',
       'Black',
       '126610LN',
       'Clean',
-      'V4',
+      'V5',
       '3235',
       '41mm',
       'Black',
       'Steel',
       'Steel Oyster',
-      'Ceramic bezel, 300m style',
+      '세라믹 베젤, 프리스프렁 밸런스',
       1580000,
       '7~14일',
-      ''
+      '/assets/media/watches/factory-submariner-black.svg'
     ],
     [
+      '공장제',
       'Rolex',
-      'Submariner',
-      'Starbucks',
-      '126610LV',
-      'VSF',
+      'GMT-Master II',
+      'Batman',
+      '126710BLNR',
+      'Clean',
       'V3',
-      '3235',
-      '41mm',
+      '3285',
+      '40mm',
       'Black',
       'Steel',
-      'Steel Oyster',
-      'Green bezel, glide-lock',
-      1690000,
+      'Jubilee Steel',
+      '양방향 베젤, GMT 기능',
+      1720000,
       '7~14일',
-      ''
+      '/assets/media/watches/factory-gmt-batman.svg'
     ],
     [
+      '공장제',
       'Patek Philippe',
       'Nautilus',
       'Blue Dial',
@@ -136,10 +227,175 @@ function seedProducts() {
       'Blue',
       'Steel',
       'Integrated Steel',
-      'Horizontal embossed dial',
+      '수평 엠보싱 다이얼',
       1890000,
       '10~20일',
-      ''
+      '/assets/media/watches/factory-nautilus-blue.svg'
+    ],
+    [
+      '공장제',
+      'Audemars Piguet',
+      'Royal Oak',
+      'Black 15500',
+      '15500ST',
+      'ZF',
+      'V4',
+      '4302',
+      '41mm',
+      'Black',
+      'Steel',
+      'Integrated Steel',
+      '태피스트리 다이얼, 슬림 케이스',
+      1980000,
+      '10~20일',
+      '/assets/media/watches/factory-royaloak-black.svg'
+    ],
+    [
+      '젠파츠',
+      'Rolex',
+      'Datejust',
+      'Fluted Gen-Parts',
+      '126334',
+      'Custom',
+      'Hybrid',
+      '3235',
+      '41mm',
+      'Silver',
+      '904L Steel',
+      'Jubilee Steel',
+      '젠 베젤/다이얼 믹스',
+      2850000,
+      '3~5주',
+      '/assets/media/watches/genparts-datejust.svg'
+    ],
+    [
+      '젠파츠',
+      'Omega',
+      'Seamaster 300',
+      'Gen Dial Mix',
+      '210.30.42.20.03.001',
+      'Custom',
+      'Hybrid',
+      '8800',
+      '42mm',
+      'Blue',
+      'Steel',
+      'Steel Bracelet',
+      '젠 다이얼, 세라믹 베젤 인서트',
+      2360000,
+      '3~5주',
+      '/assets/media/watches/genparts-seamaster.svg'
+    ],
+    [
+      '현지중고',
+      'Cartier',
+      'Santos',
+      'Medium White',
+      'WSSA0029',
+      'Local Stock',
+      'Used',
+      'Automatic',
+      '35mm',
+      'White',
+      'Steel',
+      'Steel Bracelet',
+      '현지 매입 중고, 상태 A급',
+      3120000,
+      '2~4일',
+      '/assets/media/watches/used-santos-white.svg'
+    ],
+    [
+      '현지중고',
+      'IWC',
+      'Pilot Mark XX',
+      'Blue',
+      'IW328203',
+      'Local Stock',
+      'Used',
+      '32111',
+      '40mm',
+      'Blue',
+      'Steel',
+      'Leather Strap',
+      '현지 매입 중고, 상태 A-',
+      3580000,
+      '2~4일',
+      '/assets/media/watches/used-iwc-markxx.svg'
+    ],
+    [
+      '현지중고',
+      'Tudor',
+      'Black Bay 58',
+      'Navy Blue',
+      'M79030B',
+      'Local Stock',
+      'Used',
+      'MT5402',
+      '39mm',
+      'Blue',
+      'Steel',
+      'Steel Bracelet',
+      '현지 매입 중고, 상태 B+',
+      2750000,
+      '2~4일',
+      '/assets/media/watches/used-bb58-blue.svg'
+    ]
+  ];
+
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      const [categoryGroup, brand, model, subModel, reference] = row;
+      const exists = db
+        .prepare(
+          `
+            SELECT id
+            FROM products
+            WHERE category_group = ? AND brand = ? AND model = ? AND sub_model = ? AND reference = ?
+            LIMIT 1
+          `
+        )
+        .get(categoryGroup, brand, model, subModel, reference);
+
+      if (!exists) {
+        insert.run(...row);
+      }
+    }
+  });
+
+  tx();
+}
+
+function seedNotices() {
+  const countRow = db.prepare('SELECT COUNT(*) AS count FROM notices').get();
+  if (countRow.count > 0) {
+    return;
+  }
+
+  const insert = db.prepare(
+    `
+      INSERT INTO notices (title, content, image_path, is_popup)
+      VALUES (?, ?, ?, ?)
+    `
+  );
+
+  const rows = [
+    [
+      '[중요] 3월 주문/검수 일정 안내',
+      '3월 말 물류량 증가로 일부 공장제 상품의 QC 및 출고 일정이 2~3일 지연될 수 있습니다. 급한 일정은 문의 게시판으로 접수해 주세요.',
+      '/assets/media/notice/notice-schedule.svg',
+      1
+    ],
+    [
+      '계좌이체 확인 절차 안내',
+      '입금 시 구매번호와 입금자명을 정확히 입력해 주세요. 어드민에서 구매번호와 신청자명 기준으로 확인 후 상태를 업데이트합니다.',
+      '/assets/media/notice/notice-transfer.svg',
+      0
+    ],
+    [
+      '회원 후기 정책 업데이트',
+      '구매후기 게시판은 로그인 회원만 작성 가능하며, 이미지 업로드를 권장합니다. 광고성 글은 운영정책에 따라 삭제될 수 있습니다.',
+      '/assets/media/notice/notice-review.svg',
+      0
     ]
   ];
 
@@ -148,8 +404,211 @@ function seedProducts() {
       insert.run(...row);
     }
   });
-
   tx();
+}
+
+function seedNews() {
+  const countRow = db.prepare('SELECT COUNT(*) AS count FROM news_posts').get();
+  if (countRow.count > 0) {
+    return;
+  }
+
+  const insert = db.prepare(
+    `
+      INSERT INTO news_posts (title, content, image_path)
+      VALUES (?, ?, ?)
+    `
+  );
+
+  const rows = [
+    [
+      'Chrono Lab 주간 셀렉션: Submariner 라인업 비교',
+      '이번 주는 Submariner Black, Starbucks, Vintage 톤 컬렉션을 비교했습니다. 무브먼트 안정성과 케이스 마감 완성도를 중심으로 선별했습니다. 상세 스펙은 쇼핑몰 탭에서 확인 가능합니다.',
+      '/assets/media/news/news-submariner.svg'
+    ],
+    [
+      '젠파츠 라인 신규 입고 일정',
+      '젠파츠 라인은 소량 커스텀 기반이라 입고 주기가 유동적입니다. 4월 1주차에는 Datejust/Seamaster 라인이 우선 입고될 예정입니다.',
+      '/assets/media/news/news-genparts.svg'
+    ],
+    [
+      '현지중고 카테고리 오픈',
+      '현지중고 카테고리를 새롭게 추가했습니다. 즉시 출고 가능한 재고 중심으로 구성했으며, 상태 등급과 보유 스펙을 투명하게 공개합니다.',
+      '/assets/media/news/news-used.svg'
+    ],
+    [
+      'QC 프로세스 개선 공지',
+      'QC 페이지에서 구매번호 검색 시 업로드된 이미지를 더 빠르게 확인할 수 있도록 구조를 개선했습니다. 검수 이미지와 코멘트를 동시에 확인할 수 있습니다.',
+      '/assets/media/news/news-qc.svg'
+    ]
+  ];
+
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      insert.run(...row);
+    }
+  });
+  tx();
+}
+
+function seedOrdersAndQc(demoUserId) {
+  const orderCount = db.prepare('SELECT COUNT(*) AS count FROM orders').get();
+  if (orderCount.count === 0) {
+    const products = db
+      .prepare(
+        `
+          SELECT id, price, brand, model
+          FROM products
+          ORDER BY id ASC
+          LIMIT 2
+        `
+      )
+      .all();
+
+    if (products.length > 0) {
+      const insertOrder = db.prepare(
+        `
+          INSERT INTO orders (
+            order_no,
+            product_id,
+            buyer_name,
+            buyer_contact,
+            buyer_address,
+            bank_depositor_name,
+            quantity,
+            total_price,
+            status,
+            created_by_user_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      );
+
+      products.forEach((product, idx) => {
+        const orderNo = `CL-DEMO-000${idx + 1}`;
+        insertOrder.run(
+          orderNo,
+          product.id,
+          idx === 0 ? '김크로노' : '이랩',
+          idx === 0 ? '01012345678' : '01087654321',
+          idx === 0 ? '서울특별시 강남구 테헤란로 101' : '부산광역시 해운대구 센텀동로 45',
+          idx === 0 ? '김크로노' : '이랩',
+          1,
+          Number(product.price),
+          idx === 0 ? 'TRANSFER_CONFIRMED' : 'PREPARING',
+          demoUserId
+        );
+      });
+    }
+  }
+
+  const qcCount = db.prepare('SELECT COUNT(*) AS count FROM qc_items').get();
+  if (qcCount.count > 0) {
+    return;
+  }
+
+  const orders = db.prepare('SELECT order_no FROM orders ORDER BY id ASC LIMIT 2').all();
+  if (orders.length === 0) {
+    return;
+  }
+
+  const insertQc = db.prepare(
+    `
+      INSERT INTO qc_items (order_no, image_path, note)
+      VALUES (?, ?, ?)
+    `
+  );
+
+  orders.forEach((order, idx) => {
+    insertQc.run(
+      order.order_no,
+      idx === 0 ? '/assets/media/qc/qc-demo-1.svg' : '/assets/media/qc/qc-demo-2.svg',
+      idx === 0 ? '케이스/브레이슬릿 유격 점검 완료' : '다이얼/핸즈 정렬 점검 완료'
+    );
+  });
+}
+
+function seedReviews(demoUserId) {
+  const countRow = db.prepare('SELECT COUNT(*) AS count FROM reviews').get();
+  if (countRow.count > 0) {
+    return;
+  }
+
+  const products = db.prepare('SELECT id FROM products ORDER BY id ASC LIMIT 3').all();
+  if (products.length === 0) {
+    return;
+  }
+
+  const insert = db.prepare(
+    `
+      INSERT INTO reviews (user_id, product_id, title, content, image_path)
+      VALUES (?, ?, ?, ?, ?)
+    `
+  );
+
+  const rows = [
+    [
+      demoUserId,
+      products[0]?.id || null,
+      '배송/패키징 만족합니다',
+      '주문 후 응대가 빨랐고 포장 상태도 깔끔했습니다. 실물 마감도 사진과 큰 차이 없어서 만족합니다.',
+      '/assets/media/review/review-1.svg'
+    ],
+    [
+      demoUserId,
+      products[1]?.id || null,
+      'QC 사진 확인 후 안심 구매',
+      'QC에서 요청한 부분을 자세히 찍어줘서 안심하고 입금했습니다. 다음 구매도 동일하게 진행할 예정입니다.',
+      '/assets/media/review/review-2.svg'
+    ],
+    [
+      demoUserId,
+      products[2]?.id || null,
+      '데일리로 쓰기 좋습니다',
+      '착용감이 좋아서 데일리로 계속 사용 중입니다. 스트랩 피팅도 안정적이었습니다.',
+      '/assets/media/review/review-3.svg'
+    ]
+  ];
+
+  const tx = db.transaction(() => {
+    for (const row of rows) {
+      insert.run(...row);
+    }
+  });
+  tx();
+}
+
+function seedInquiries(demoUserId) {
+  const countRow = db.prepare('SELECT COUNT(*) AS count FROM inquiries').get();
+  if (countRow.count > 0) {
+    return;
+  }
+
+  const insert = db.prepare(
+    `
+      INSERT INTO inquiries (user_id, title, content, image_path, reply_content, replied_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `
+  );
+
+  const now = "datetime('now')";
+
+  insert.run(
+    demoUserId,
+    'Submariner 재고 문의',
+    '공장제 Submariner Starbucks 현재 재고가 있는지, 입금 후 평균 배송일이 어느 정도인지 문의드립니다.',
+    '/assets/media/news/news-submariner.svg',
+    '현재 재고 보유 중이며 입금 확인 후 평균 7~14일 내 출고됩니다.',
+    db.prepare(`SELECT ${now} AS now`).get().now
+  );
+
+  insert.run(
+    demoUserId,
+    '현지중고 라인 상태 등급 문의',
+    '현지중고 카테고리 상품 상태 기준(A/B/C) 상세 기준표가 있을까요?',
+    '',
+    null,
+    null
+  );
 }
 
 export function initDb() {
@@ -166,6 +625,7 @@ export function initDb() {
 
     CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_group TEXT NOT NULL DEFAULT '공장제',
       brand TEXT NOT NULL,
       model TEXT NOT NULL,
       sub_model TEXT,
@@ -208,6 +668,14 @@ export function initDb() {
       content TEXT NOT NULL,
       image_path TEXT,
       is_popup INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS news_posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      image_path TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -259,6 +727,8 @@ export function initDb() {
     );
   `);
 
+  ensureProductsCategoryColumn();
+
   for (const [key, value] of Object.entries(defaultSettings)) {
     upsertDefaultSetting(key, value);
   }
@@ -266,32 +736,20 @@ export function initDb() {
   const menuRow = db
     .prepare('SELECT setting_value FROM site_settings WHERE setting_key = ? LIMIT 1')
     .get('menus');
-  if (menuRow?.setting_value) {
-    try {
-      const parsed = JSON.parse(menuRow.setting_value);
-      if (Array.isArray(parsed)) {
-        const normalized = parsed.map((menu) => {
-          if (!menu || typeof menu !== 'object') {
-            return menu;
-          }
-          const cloned = { ...menu };
-          if (cloned.path === '/') cloned.path = '/main';
-          if (cloned.path === '/notices') cloned.path = '/notice';
-          if (cloned.path === '/reviews') cloned.path = '/review';
-          if (cloned.path === '/inquiries') cloned.path = '/inquiry';
-          return cloned;
-        });
-        setSetting('menus', JSON.stringify(normalized));
-      }
-    } catch {
-      setSetting('menus', JSON.stringify(defaultMenus));
-    }
-  }
+  const normalizedMenus = normalizeMenus(menuRow?.setting_value || JSON.stringify(defaultMenus));
+  setSetting('menus', JSON.stringify(normalizedMenus));
 
   upsertMetric('totalVisits', 0);
 
   ensureAdminUser();
+  const demoUserId = ensureDemoMemberUser();
+
   seedProducts();
+  seedNotices();
+  seedNews();
+  seedOrdersAndQc(demoUserId);
+  seedReviews(demoUserId);
+  seedInquiries(demoUserId);
 }
 
 export function getSetting(key, fallback = '') {
@@ -346,19 +804,21 @@ export function getPostCounts(visitDate) {
       `
         SELECT (
           (SELECT COUNT(*) FROM notices WHERE date(created_at, '+9 hours') = ?) +
+          (SELECT COUNT(*) FROM news_posts WHERE date(created_at, '+9 hours') = ?) +
           (SELECT COUNT(*) FROM reviews WHERE date(created_at, '+9 hours') = ?) +
           (SELECT COUNT(*) FROM inquiries WHERE date(created_at, '+9 hours') = ?) +
           (SELECT COUNT(*) FROM qc_items WHERE date(created_at, '+9 hours') = ?)
         ) AS count
       `
     )
-    .get(visitDate, visitDate, visitDate, visitDate);
+    .get(visitDate, visitDate, visitDate, visitDate, visitDate);
 
   const totalPosts = db
     .prepare(
       `
         SELECT (
           (SELECT COUNT(*) FROM notices) +
+          (SELECT COUNT(*) FROM news_posts) +
           (SELECT COUNT(*) FROM reviews) +
           (SELECT COUNT(*) FROM inquiries) +
           (SELECT COUNT(*) FROM qc_items)

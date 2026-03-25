@@ -15,16 +15,43 @@
     </a>
 
     <div class="header-actions">
-      <a href="/set-lang/<%= ctx.lang === 'ko' ? 'en' : 'ko' %>" class="chip ghost">
-        <%= ctx.lang === 'ko' ? 'EN' : 'KR' %>
+      <a href="/set-lang/<%= ctx.lang === 'ko' ? 'en' : 'ko' %>" class="icon-action" aria-label="language switch">
+        <span class="icon-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
+            <path d="M3.5 9.5h17" />
+            <path d="M3.5 14.5h17" />
+            <path d="M12 3a15 15 0 0 1 0 18" />
+            <path d="M12 3a15 15 0 0 0 0 18" />
+          </svg>
+        </span>
+        <span class="icon-label"><%= ctx.lang === 'ko' ? 'EN' : 'KR' %></span>
       </a>
-      <a href="/toggle-theme" class="chip ghost"><%= ctx.themeMode === 'day' ? 'Night' : 'Day' %></a>
+      <a href="/toggle-theme" class="icon-action" aria-label="theme switch">
+        <span class="icon-glyph" aria-hidden="true">
+          <% if (ctx.themeMode === 'day') { %>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 4.5v-2" />
+              <path d="M12 21.5v-2" />
+              <path d="m6.7 6.7-1.4-1.4" />
+              <path d="m18.7 18.7-1.4-1.4" />
+              <path d="M4.5 12h-2" />
+              <path d="M21.5 12h-2" />
+              <path d="m6.7 17.3-1.4 1.4" />
+              <path d="m18.7 5.3-1.4 1.4" />
+              <circle cx="12" cy="12" r="4.2" />
+            </svg>
+          <% } else { %>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M20 14.2A8 8 0 1 1 9.8 4a6.8 6.8 0 1 0 10.2 10.2Z" />
+            </svg>
+          <% } %>
+        </span>
+        <span class="icon-label"><%= ctx.themeMode === 'day' ? 'Night' : 'Day' %></span>
+      </a>
 
       <% if (ctx.currentUser) { %>
         <span class="chip muted"><%= ctx.currentUser.username %></span>
-        <% if (ctx.isAdmin) { %>
-          <a href="/admin" class="chip dark"><%= ctx.t('admin') %></a>
-        <% } %>
         <form method="post" action="/logout" class="inline-form">
           <button type="submit" class="chip"><%= ctx.t('logout') %></button>
         </form>

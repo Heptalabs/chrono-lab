@@ -3,29 +3,44 @@
 <section class="block-card">
   <div class="section-head">
     <h2>Shop</h2>
-    <span class="muted-label">브랜드 1개만 선택 가능</span>
+    <span class="muted-label">상위 분류 1개만 선택 가능</span>
   </div>
 
   <div class="filter-group">
-    <h4>대분류 (브랜드)</h4>
+    <h4>상위 분류</h4>
     <div class="chip-row">
-      <a href="/shop" class="chip <%= brand ? '' : 'dark' %>">전체</a>
-      <% brands.forEach((item) => { %>
-        <a href="/shop?brand=<%= encodeURIComponent(item) %>" class="chip <%= brand === item ? 'dark' : '' %>"><%= item %></a>
+      <% productGroups.forEach((item) => { %>
+        <a href="/shop?group=<%= encodeURIComponent(item) %>" class="chip <%= group === item ? 'dark' : '' %>"><%= item %></a>
       <% }) %>
     </div>
   </div>
 
-  <% if (brand) { %>
+  <% if (group === '공장제') { %>
     <div class="filter-group">
-      <h4>소분류 (모델)</h4>
+      <h4>대분류 (브랜드)</h4>
       <div class="chip-row">
-        <a href="/shop?brand=<%= encodeURIComponent(brand) %>" class="chip <%= model ? '' : 'dark' %>">전체</a>
-        <% models.forEach((item) => { %>
-          <a href="/shop?brand=<%= encodeURIComponent(brand) %>&model=<%= encodeURIComponent(item) %>" class="chip <%= model === item ? 'dark' : '' %>"><%= item %></a>
+        <a href="/shop?group=<%= encodeURIComponent(group) %>" class="chip <%= brand ? '' : 'dark' %>">전체</a>
+        <% brands.forEach((item) => { %>
+          <a href="/shop?group=<%= encodeURIComponent(group) %>&brand=<%= encodeURIComponent(item) %>" class="chip <%= brand === item ? 'dark' : '' %>"><%= item %></a>
         <% }) %>
       </div>
     </div>
+  <% } %>
+
+  <% if (group === '공장제' && brand) { %>
+    <div class="filter-group">
+      <h4>소분류 (모델)</h4>
+      <div class="chip-row">
+        <a href="/shop?group=<%= encodeURIComponent(group) %>&brand=<%= encodeURIComponent(brand) %>" class="chip <%= model ? '' : 'dark' %>">전체</a>
+        <% models.forEach((item) => { %>
+          <a href="/shop?group=<%= encodeURIComponent(group) %>&brand=<%= encodeURIComponent(brand) %>&model=<%= encodeURIComponent(item) %>" class="chip <%= model === item ? 'dark' : '' %>"><%= item %></a>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (group !== '공장제') { %>
+    <p class="muted-label">선택한 카테고리는 상위 분류 기준으로 상품을 바로 확인할 수 있습니다.</p>
   <% } %>
 </section>
 
@@ -45,6 +60,7 @@
           <% } %>
         </div>
         <div class="product-meta">
+          <small><%= item.category_group || '-' %></small>
           <strong><%= item.brand %> <%= item.model %></strong>
           <span><%= item.sub_model %></span>
           <small><%= item.case_material || '-' %> / <%= item.movement || '-' %></small>

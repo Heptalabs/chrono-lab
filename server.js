@@ -5,7 +5,17 @@ import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
-import { db, initDb, getDefaultMenus, getPostCounts, getSetting, getVisitCounts, incrementVisit, setSetting } from './src/db.js';
+import {
+  db,
+  initDb,
+  getDefaultMenus,
+  getPostCounts,
+  getSetting,
+  getVisitCounts,
+  incrementVisit,
+  setSetting,
+  SHOP_PRODUCT_GROUPS
+} from './src/db.js';
 import { resolveLanguage, t } from './src/i18n.js';
 
 initDb();
@@ -98,14 +108,17 @@ function parseMenus(rawMenus) {
       return getDefaultMenus();
     }
 
-    return parsed
+    const menus = parsed
       .filter((menu) => menu && menu.path)
       .map((menu, idx) => ({
         id: String(menu.id || `menu-${idx + 1}`),
         labelKo: String(menu.labelKo || menu.labelEn || `메뉴${idx + 1}`),
         labelEn: String(menu.labelEn || menu.labelKo || `Menu${idx + 1}`),
-        path: String(menu.path)
-      }));
+        path: sanitizePath(String(menu.path || ''))
+      }))
+      .filter((menu) => !menu.path.startsWith('/admin'));
+
+    return menus.length > 0 ? menus : getDefaultMenus();
   } catch {
     return getDefaultMenus();
   }
@@ -425,24 +438,40 @@ app.get('/main', (req, res) => {
     )
     .all();
 
-  res.render('main', { title: 'Main', featuredProducts, latestNotices });
+  const latestNews = db
+    .prepare(
+      `
+        SELECT id, title, content, image_path, created_at
+        FROM news_posts
+        ORDER BY id DESC
+        LIMIT 3
+      `
+    )
+    .all();
+
+  res.render('main', { title: 'Main', featuredProducts, latestNotices, latestNews });
 });
 
 app.get('/shop', (req, res) => {
-  const brand = String(req.query.brand || '').trim();
-  const model = String(req.query.model || '').trim();
+  const groupRaw = String(req.query.group || '').trim();
+  const group = SHOP_PRODUCT_GROUPS.includes(groupRaw) ? groupRaw : SHOP_PRODUCT_GROUPS[0];
+  const canUseBrandModelFilter = group === '공장제';
+  const brand = canUseBrandModelFilter ? String(req.query.brand || '').trim() : '';
+  const model = canUseBrandModelFilter ? String(req.query.model || '').trim() : '';
 
-  const brands = db
-    .prepare(
-      `
-        SELECT DISTINCT brand
-        FROM products
-        WHERE is_active = 1
-        ORDER BY brand ASC
-      `
-    )
-    .all()
-    .map((row) => row.brand);
+  const brands = canUseBrandModelFilter
+    ? db
+        .prepare(
+          `
+            SELECT DISTINCT brand
+            FROM products
+            WHERE is_active = 1 AND category_group = ?
+            ORDER BY brand ASC
+          `
+        )
+        .all(group)
+        .map((row) => row.brand)
+    : [];
 
   const models = brand
     ? db
@@ -450,16 +479,16 @@ app.get('/shop', (req, res) => {
           `
             SELECT DISTINCT model
             FROM products
-            WHERE is_active = 1 AND brand = ?
+            WHERE is_active = 1 AND category_group = ? AND brand = ?
             ORDER BY model ASC
           `
         )
-        .all(brand)
+        .all(group, brand)
         .map((row) => row.model)
     : [];
 
-  const where = ['is_active = 1'];
-  const params = [];
+  const where = ['is_active = 1', 'category_group = ?'];
+  const params = [group];
 
   if (brand) {
     where.push('brand = ?');
@@ -474,7 +503,7 @@ app.get('/shop', (req, res) => {
   const products = db
     .prepare(
       `
-        SELECT id, brand, model, sub_model, price, image_path, shipping_period, case_material, movement
+        SELECT id, category_group, brand, model, sub_model, price, image_path, shipping_period, case_material, movement
         FROM products
         WHERE ${where.join(' AND ')}
         ORDER BY id DESC
@@ -484,6 +513,8 @@ app.get('/shop', (req, res) => {
 
   res.render('shop', {
     title: 'Shop',
+    group,
+    productGroups: SHOP_PRODUCT_GROUPS,
     brand,
     model,
     brands,
@@ -621,6 +652,43 @@ app.get('/notice/:id', (req, res) => {
     return res.status(404).render('simple-error', { title: 'Not Found', message: '공지사항이 없습니다.' });
   }
   res.render('notice-detail', { title: 'Notice Detail', notice });
+});
+
+app.get('/news', (req, res) => {
+  const newsPosts = db
+    .prepare(
+      `
+        SELECT id, title, content, image_path, created_at
+        FROM news_posts
+        ORDER BY id DESC
+      `
+    )
+    .all();
+
+  res.render('news-list', { title: 'News', newsPosts });
+});
+
+app.get('/news/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const newsPost = db.prepare('SELECT * FROM news_posts WHERE id = ? LIMIT 1').get(id);
+
+  if (!newsPost) {
+    return res.status(404).render('simple-error', { title: 'Not Found', message: '뉴스 게시글이 없습니다.' });
+  }
+
+  const relatedNews = db
+    .prepare(
+      `
+        SELECT id, title, created_at
+        FROM news_posts
+        WHERE id != ?
+        ORDER BY id DESC
+        LIMIT 5
+      `
+    )
+    .all(newsPost.id);
+
+  res.render('news-detail', { title: 'News Detail', newsPost, relatedNews });
 });
 
 app.get('/qc', (req, res) => {
@@ -863,8 +931,7 @@ app.get('/admin/login', (req, res) => {
   if (req.user?.isAdmin) {
     return res.redirect('/admin');
   }
-  const showDefaultAdminHint = process.env.SHOW_DEFAULT_ADMIN_HINT === '1';
-  res.render('admin-login', { title: 'Admin Login', showDefaultAdminHint });
+  res.render('admin-login', { title: 'Admin Login' });
 });
 
 app.post(
@@ -974,6 +1041,7 @@ app.get('/admin', requireAdmin, (req, res) => {
     )
     .all();
   const notices = db.prepare('SELECT * FROM notices ORDER BY id DESC LIMIT 50').all();
+  const newsPosts = db.prepare('SELECT * FROM news_posts ORDER BY id DESC LIMIT 50').all();
   const qcs = db.prepare('SELECT * FROM qc_items ORDER BY id DESC LIMIT 50').all();
   const inquiries = db
     .prepare(
@@ -993,9 +1061,11 @@ app.get('/admin', requireAdmin, (req, res) => {
     products,
     orders,
     notices,
+    newsPosts,
     qcs,
     inquiries,
-    formatPrice
+    formatPrice,
+    productGroups: SHOP_PRODUCT_GROUPS
   });
 });
 
@@ -1071,6 +1141,11 @@ app.post('/admin/menu/add', requireAdmin, (req, res) => {
     return res.redirect('/admin');
   }
 
+  if (menuPath.startsWith('/admin')) {
+    setFlash(req, 'error', 'admin 경로는 공개 메뉴로 추가할 수 없습니다.');
+    return res.redirect('/admin');
+  }
+
   const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
   const id = `menu-${Date.now()}`;
   menus.push({ id, labelKo, labelEn, path: menuPath });
@@ -1094,6 +1169,10 @@ app.post('/admin/menu/remove/:id', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/product/create', requireAdmin, upload.single('image'), (req, res) => {
+  const categoryGroupRaw = String(req.body.categoryGroup || SHOP_PRODUCT_GROUPS[0]).trim();
+  const categoryGroup = SHOP_PRODUCT_GROUPS.includes(categoryGroupRaw)
+    ? categoryGroupRaw
+    : SHOP_PRODUCT_GROUPS[0];
   const brand = String(req.body.brand || '').trim();
   const model = String(req.body.model || '').trim();
   const subModel = String(req.body.subModel || '').trim();
@@ -1117,6 +1196,7 @@ app.post('/admin/product/create', requireAdmin, upload.single('image'), (req, re
   db.prepare(
     `
       INSERT INTO products (
+        category_group,
         brand,
         model,
         sub_model,
@@ -1132,9 +1212,10 @@ app.post('/admin/product/create', requireAdmin, upload.single('image'), (req, re
         price,
         shipping_period,
         image_path
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
   ).run(
+    categoryGroup,
     brand,
     model,
     subModel,
@@ -1188,6 +1269,25 @@ app.post('/admin/notice/create', requireAdmin, upload.single('image'), (req, res
   );
 
   setFlash(req, 'success', '공지사항이 등록되었습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/news/create', requireAdmin, upload.single('image'), (req, res) => {
+  const title = String(req.body.title || '').trim();
+  const content = String(req.body.content || '').trim();
+
+  if (!title || !content) {
+    setFlash(req, 'error', '뉴스 제목과 내용을 입력해 주세요.');
+    return res.redirect('/admin');
+  }
+
+  db.prepare('INSERT INTO news_posts (title, content, image_path) VALUES (?, ?, ?)').run(
+    title,
+    content,
+    fileUrl(req.file)
+  );
+
+  setFlash(req, 'success', '뉴스가 등록되었습니다.');
   res.redirect('/admin');
 });
 

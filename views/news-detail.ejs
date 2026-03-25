@@ -1,0 +1,33 @@
+<%- include('partials/layout-start') %>
+
+<section class="block-card narrow">
+  <h2><%= newsPost.title %></h2>
+  <p class="muted-label"><%= newsPost.created_at.slice(0, 10) %></p>
+
+  <% if (newsPost.image_path) { %>
+    <img src="<%= newsPost.image_path %>" alt="<%= newsPost.title %>" class="notice-image" />
+  <% } %>
+
+  <article class="content-article"><%= newsPost.content %></article>
+  <a href="/news" class="chip">뉴스 목록으로</a>
+</section>
+
+<section class="block-card">
+  <div class="section-head">
+    <h3>최근 뉴스</h3>
+    <a href="/news">전체보기</a>
+  </div>
+  <ul class="line-list">
+    <% if (relatedNews.length === 0) { %>
+      <li>다른 뉴스가 없습니다.</li>
+    <% } %>
+    <% relatedNews.forEach((item) => { %>
+      <li>
+        <a href="/news/<%= item.id %>"><%= item.title %></a>
+        <span><%= item.created_at.slice(0, 10) %></span>
+      </li>
+    <% }) %>
+  </ul>
+</section>
+
+<%- include('partials/layout-end') %>

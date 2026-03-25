@@ -124,6 +124,13 @@
       <label>사진
         <input type="file" name="image" accept="image/*" />
       </label>
+      <label>상위 분류
+        <select name="categoryGroup" required>
+          <% productGroups.forEach((groupName) => { %>
+            <option value="<%= groupName %>"><%= groupName %></option>
+          <% }) %>
+        </select>
+      </label>
       <label>브랜드
         <input type="text" name="brand" placeholder="Rolex" required />
       </label>
@@ -174,6 +181,7 @@
         <thead>
           <tr>
             <th>ID</th>
+            <th>분류</th>
             <th>브랜드/모델</th>
             <th>가격</th>
             <th>상태</th>
@@ -184,6 +192,7 @@
           <% products.forEach((item) => { %>
             <tr>
               <td><%= item.id %></td>
+              <td><%= item.category_group || '-' %></td>
               <td><%= item.brand %> <%= item.model %> <%= item.sub_model %></td>
               <td>₩<%= formatPrice(item.price) %></td>
               <td><%= item.is_active ? '노출' : '숨김' %></td>
@@ -229,7 +238,32 @@
   </article>
 
   <article class="block-card">
-    <h3>5) QC 업로드</h3>
+    <h3>5) 뉴스 업로드</h3>
+    <form method="post" action="/admin/news/create" enctype="multipart/form-data" class="form-grid">
+      <label>제목
+        <input type="text" name="title" required />
+      </label>
+      <label>내용
+        <textarea name="content" rows="4" required></textarea>
+      </label>
+      <label>이미지
+        <input type="file" name="image" accept="image/*" />
+      </label>
+      <button type="submit" class="cta-main">뉴스 등록</button>
+    </form>
+
+    <ul class="line-list compact">
+      <% newsPosts.forEach((item) => { %>
+        <li>
+          <span><%= item.title %></span>
+          <em><%= item.created_at.slice(0, 10) %></em>
+        </li>
+      <% }) %>
+    </ul>
+  </article>
+
+  <article class="block-card">
+    <h3>6) QC 업로드</h3>
     <form method="post" action="/admin/qc/create" enctype="multipart/form-data" class="form-grid">
       <label>구매번호
         <input type="text" name="orderNo" required />
@@ -254,7 +288,7 @@
   </article>
 
   <article class="block-card">
-    <h3>6) 주문 확인 (입금자명 + 구매번호 대조)</h3>
+    <h3>7) 주문 확인 (입금자명 + 구매번호 대조)</h3>
     <div class="table-wrap">
       <table>
         <thead>
@@ -296,7 +330,7 @@
   </article>
 
   <article class="block-card">
-    <h3>7) 문의 답변</h3>
+    <h3>8) 문의 답변</h3>
     <div class="admin-list">
       <% inquiries.forEach((item) => { %>
         <div class="inquiry-admin-item">

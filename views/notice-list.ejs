@@ -3,9 +3,7 @@
 <section class="block-card">
   <div class="section-head">
     <h2>공지사항</h2>
-    <% if (ctx.isAdmin) { %>
-      <a href="/admin">어드민에서 작성</a>
-    <% } %>
+    <span class="muted-label">최신 공지 업데이트</span>
   </div>
   <ul class="line-list">
     <% if (notices.length === 0) { %>
