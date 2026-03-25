@@ -1,0 +1,36 @@
+<%- include('partials/layout-start') %>
+
+<section class="block-card">
+  <div class="section-head">
+    <h2>구매후기</h2>
+    <% if (ctx.currentUser) { %>
+      <a href="/review/new" class="chip dark">후기 작성</a>
+    <% } else { %>
+      <a href="/login" class="chip">로그인 후 작성</a>
+    <% } %>
+  </div>
+
+  <div class="review-grid">
+    <% if (reviews.length === 0) { %>
+      <p>아직 등록된 후기가 없습니다.</p>
+    <% } %>
+
+    <% reviews.forEach((item) => { %>
+      <article class="review-card">
+        <% if (item.image_path) { %>
+          <img src="<%= item.image_path %>" alt="review" />
+        <% } %>
+        <h3><%= item.title %></h3>
+        <p><%= item.content %></p>
+        <small>
+          작성자 <%= maskUsername(item.username) %>
+          <% if (item.brand) { %>
+            / <%= item.brand %> <%= item.model %> <%= item.sub_model %>
+          <% } %>
+        </small>
+      </article>
+    <% }) %>
+  </div>
+</section>
+
+<%- include('partials/layout-end') %>

@@ -1,0 +1,24 @@
+      </main>
+      <%- include('partials/footer') %>
+    </div>
+
+    <% if (ctx.popupNotice) { %>
+      <div id="noticePopup" class="popup-backdrop hidden" data-popup-id="<%= ctx.popupNotice.id %>">
+        <div class="popup-card">
+          <h3><%= ctx.popupNotice.title %></h3>
+          <% if (ctx.popupNotice.imagePath) { %>
+            <img src="<%= ctx.popupNotice.imagePath %>" alt="popup notice" class="popup-image" />
+          <% } %>
+          <p><%= ctx.popupNotice.content %></p>
+          <div class="popup-actions">
+            <button type="button" data-popup-action="hide7" class="chip ghost">7일간 보지 않기</button>
+            <button type="button" data-popup-action="close" class="chip">닫기</button>
+            <button type="button" data-popup-action="confirm" class="chip dark">확인</button>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <script src="/assets/js/app.js"></script>
+  </body>
+</html>

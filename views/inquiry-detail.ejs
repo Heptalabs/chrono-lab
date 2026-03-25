@@ -1,0 +1,24 @@
+<%- include('partials/layout-start') %>
+
+<section class="block-card narrow">
+  <h2><%= inquiry.title %></h2>
+  <p class="muted-label">작성자: <%= writerMasked %> / <%= inquiry.created_at.slice(0, 10) %></p>
+
+  <% if (canOpen) { %>
+    <article class="content-article"><%= inquiry.content %></article>
+    <% if (inquiry.image_path) { %>
+      <img src="<%= inquiry.image_path %>" alt="inquiry image" class="notice-image" />
+    <% } %>
+
+    <div class="notice-box">
+      <h4>어드민 답변</h4>
+      <p><%= inquiry.reply_content || '아직 답변이 등록되지 않았습니다.' %></p>
+    </div>
+  <% } else { %>
+    <p><%= ctx.t('inquiryLocked') %></p>
+  <% } %>
+
+  <a href="/inquiry" class="chip">목록으로</a>
+</section>
+
+<%- include('partials/layout-end') %>

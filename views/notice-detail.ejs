@@ -1,0 +1,13 @@
+<%- include('partials/layout-start') %>
+
+<section class="block-card narrow">
+  <h2><%= notice.title %></h2>
+  <p class="muted-label"><%= notice.created_at.slice(0, 10) %></p>
+  <% if (notice.image_path) { %>
+    <img src="<%= notice.image_path %>" alt="notice" class="notice-image" />
+  <% } %>
+  <article class="content-article"><%= notice.content %></article>
+  <a href="/notice" class="chip">목록으로</a>
+</section>
+
+<%- include('partials/layout-end') %>

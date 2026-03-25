@@ -1,0 +1,302 @@
+<%- include('partials/layout-start') %>
+
+<section class="block-card">
+  <div class="section-head">
+    <h2>Admin Dashboard</h2>
+    <a href="/admin/logout" class="chip">어드민 로그아웃</a>
+  </div>
+  <p class="muted-label">요청하신 기능 대부분을 여기서 관리할 수 있도록 구성했습니다.</p>
+</section>
+
+<section class="admin-grid">
+  <article class="block-card">
+    <h3>1) 사이트 커스터마이징</h3>
+    <form method="post" action="/admin/settings" enctype="multipart/form-data" class="form-grid">
+      <label>쇼핑몰 이름
+        <input type="text" name="siteName" value="<%= settings.siteName %>" />
+      </label>
+
+      <label>헤더 컬러
+        <input type="color" name="headerColor" value="<%= settings.headerColor %>" />
+      </label>
+
+      <label>배경 타입
+        <select name="backgroundType">
+          <option value="color" <%= settings.backgroundType === 'color' ? 'selected' : '' %>>Color</option>
+          <option value="image" <%= settings.backgroundType === 'image' ? 'selected' : '' %>>Image</option>
+        </select>
+      </label>
+
+      <label>배경 컬러
+        <input type="color" name="backgroundColor" value="<%= settings.backgroundValue && settings.backgroundValue.startsWith('#') ? settings.backgroundValue : '#f7f7f8' %>" />
+      </label>
+
+      <label>배경 이미지 업로드
+        <input type="file" name="backgroundImage" accept="image/*" />
+      </label>
+
+      <label>헤더 심볼 업로드
+        <input type="file" name="headerSymbol" accept="image/*" />
+      </label>
+
+      <label>헤더 로고 업로드
+        <input type="file" name="headerLogo" accept="image/*" />
+      </label>
+
+      <label>푸터 로고 업로드
+        <input type="file" name="footerLogo" accept="image/*" />
+      </label>
+
+      <label>기본 언어
+        <select name="languageDefault">
+          <option value="ko" <%= settings.languageDefault === 'ko' ? 'selected' : '' %>>한국어</option>
+          <option value="en" <%= settings.languageDefault === 'en' ? 'selected' : '' %>>English</option>
+        </select>
+      </label>
+
+      <label>사이트 정보
+        <textarea name="businessInfo" rows="2"><%= settings.businessInfo %></textarea>
+      </label>
+
+      <label>연락처 정보
+        <textarea name="contactInfo" rows="2"><%= settings.contactInfo %></textarea>
+      </label>
+
+      <label>입금 계좌 정보
+        <textarea name="bankAccountInfo" rows="2"><%= settings.bankAccountInfo %></textarea>
+      </label>
+
+      <label>메뉴 JSON (고급)
+        <textarea name="menusJson" rows="8"><%= settings.menusJson %></textarea>
+      </label>
+
+      <button type="submit" class="cta-main">사이트 설정 저장</button>
+    </form>
+  </article>
+
+  <article class="block-card">
+    <h3>2) 메뉴 추가/삭제</h3>
+    <form method="post" action="/admin/menu/add" class="form-grid">
+      <label>메뉴명 (KR)
+        <input type="text" name="labelKo" required />
+      </label>
+      <label>메뉴명 (EN)
+        <input type="text" name="labelEn" required />
+      </label>
+      <label>경로 (예: /event)
+        <input type="text" name="path" required />
+      </label>
+      <button type="submit" class="chip dark">메뉴 추가</button>
+    </form>
+
+    <div class="admin-list">
+      <% ctx.menus.forEach((menu) => { %>
+        <div class="admin-list-item">
+          <strong><%= menu.labelKo %> / <%= menu.labelEn %></strong>
+          <span><%= menu.path %></span>
+          <form method="post" action="/admin/menu/remove/<%= menu.id %>" class="inline-form">
+            <button type="submit" class="chip">삭제</button>
+          </form>
+        </div>
+      <% }) %>
+    </div>
+  </article>
+
+  <article class="block-card">
+    <h3>3) 상품 업로드</h3>
+    <form method="post" action="/admin/product/create" enctype="multipart/form-data" class="form-grid">
+      <label>사진
+        <input type="file" name="image" accept="image/*" />
+      </label>
+      <label>브랜드
+        <input type="text" name="brand" placeholder="Rolex" required />
+      </label>
+      <label>모델명
+        <input type="text" name="model" placeholder="Submariner" required />
+      </label>
+      <label>세부모델명
+        <input type="text" name="subModel" placeholder="Black, Starbucks" required />
+      </label>
+      <label>레퍼런스
+        <input type="text" name="reference" />
+      </label>
+      <label>공장
+        <input type="text" name="factoryName" />
+      </label>
+      <label>버전
+        <input type="text" name="versionName" />
+      </label>
+      <label>무브먼트
+        <input type="text" name="movement" />
+      </label>
+      <label>케이스사이즈
+        <input type="text" name="caseSize" />
+      </label>
+      <label>다이얼 색
+        <input type="text" name="dialColor" />
+      </label>
+      <label>케이스 재질
+        <input type="text" name="caseMaterial" placeholder="Steel, Titanium" />
+      </label>
+      <label>브레이슬릿/스트랩 재질
+        <input type="text" name="strapMaterial" />
+      </label>
+      <label>특징
+        <textarea name="features" rows="2" placeholder="도금, 포금, 프리스프렁 등"></textarea>
+      </label>
+      <label>가격 (원)
+        <input type="number" name="price" min="0" required />
+      </label>
+      <label>배송기간
+        <input type="text" name="shippingPeriod" placeholder="7~14일" />
+      </label>
+      <button type="submit" class="cta-main">상품 등록</button>
+    </form>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>브랜드/모델</th>
+            <th>가격</th>
+            <th>상태</th>
+            <th>제어</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% products.forEach((item) => { %>
+            <tr>
+              <td><%= item.id %></td>
+              <td><%= item.brand %> <%= item.model %> <%= item.sub_model %></td>
+              <td>₩<%= formatPrice(item.price) %></td>
+              <td><%= item.is_active ? '노출' : '숨김' %></td>
+              <td>
+                <form method="post" action="/admin/product/<%= item.id %>/toggle" class="inline-form">
+                  <button type="submit" class="chip"><%= item.is_active ? '숨기기' : '노출' %></button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="block-card">
+    <h3>4) 공지사항 업로드 (팝업 선택 가능)</h3>
+    <form method="post" action="/admin/notice/create" enctype="multipart/form-data" class="form-grid">
+      <label>제목
+        <input type="text" name="title" required />
+      </label>
+      <label>내용
+        <textarea name="content" rows="4" required></textarea>
+      </label>
+      <label>이미지
+        <input type="file" name="image" accept="image/*" />
+      </label>
+      <label class="check-row">
+        <input type="checkbox" name="isPopup" />
+        <span>팝업 공지로 노출</span>
+      </label>
+      <button type="submit" class="cta-main">공지 등록</button>
+    </form>
+
+    <ul class="line-list compact">
+      <% notices.forEach((item) => { %>
+        <li>
+          <span><%= item.title %></span>
+          <em><%= item.is_popup ? '팝업' : '일반' %></em>
+        </li>
+      <% }) %>
+    </ul>
+  </article>
+
+  <article class="block-card">
+    <h3>5) QC 업로드</h3>
+    <form method="post" action="/admin/qc/create" enctype="multipart/form-data" class="form-grid">
+      <label>구매번호
+        <input type="text" name="orderNo" required />
+      </label>
+      <label>QC 이미지
+        <input type="file" name="image" accept="image/*" required />
+      </label>
+      <label>메모
+        <input type="text" name="note" />
+      </label>
+      <button type="submit" class="cta-main">QC 등록</button>
+    </form>
+
+    <ul class="line-list compact">
+      <% qcs.forEach((item) => { %>
+        <li>
+          <span><%= item.order_no %> / <%= item.note || '-' %></span>
+          <em><%= item.created_at.slice(0, 10) %></em>
+        </li>
+      <% }) %>
+    </ul>
+  </article>
+
+  <article class="block-card">
+    <h3>6) 주문 확인 (입금자명 + 구매번호 대조)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>구매번호</th>
+            <th>신청 정보</th>
+            <th>입금자명</th>
+            <th>상태</th>
+            <th>변경</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% orders.forEach((item) => { %>
+            <tr>
+              <td><%= item.order_no %></td>
+              <td>
+                <strong><%= item.buyer_name %></strong><br />
+                <small><%= item.buyer_contact %> / <%= item.buyer_address %></small>
+              </td>
+              <td><%= item.bank_depositor_name %></td>
+              <td><%= item.status %></td>
+              <td>
+                <form method="post" action="/admin/order/<%= item.id %>/status" class="inline-form">
+                  <select name="status">
+                    <option value="PENDING_TRANSFER" <%= item.status === 'PENDING_TRANSFER' ? 'selected' : '' %>>PENDING_TRANSFER</option>
+                    <option value="TRANSFER_CONFIRMED" <%= item.status === 'TRANSFER_CONFIRMED' ? 'selected' : '' %>>TRANSFER_CONFIRMED</option>
+                    <option value="PREPARING" <%= item.status === 'PREPARING' ? 'selected' : '' %>>PREPARING</option>
+                    <option value="SHIPPED" <%= item.status === 'SHIPPED' ? 'selected' : '' %>>SHIPPED</option>
+                    <option value="DONE" <%= item.status === 'DONE' ? 'selected' : '' %>>DONE</option>
+                  </select>
+                  <button type="submit" class="chip">저장</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </article>
+
+  <article class="block-card">
+    <h3>7) 문의 답변</h3>
+    <div class="admin-list">
+      <% inquiries.forEach((item) => { %>
+        <div class="inquiry-admin-item">
+          <strong><%= item.title %></strong>
+          <p>작성자: <%= item.username %></p>
+          <p>내용: <%= item.content %></p>
+          <form method="post" action="/admin/inquiry/<%= item.id %>/reply" class="form-grid">
+            <label>답변
+              <textarea name="replyContent" rows="3"><%= item.reply_content || '' %></textarea>
+            </label>
+            <button type="submit" class="chip dark">답변 저장</button>
+          </form>
+        </div>
+      <% }) %>
+    </div>
+  </article>
+</section>
+
+<%- include('partials/layout-end') %>

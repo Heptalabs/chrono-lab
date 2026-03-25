@@ -1,0 +1,31 @@
+<%- include('partials/layout-start') %>
+
+<section class="block-card narrow">
+  <h2>구매후기 작성</h2>
+  <form method="post" action="/review/new" enctype="multipart/form-data" class="form-grid">
+    <label>관련 상품 (선택)
+      <select name="productId">
+        <option value="">선택 안함</option>
+        <% products.forEach((item) => { %>
+          <option value="<%= item.id %>"><%= item.brand %> <%= item.model %> <%= item.sub_model %></option>
+        <% }) %>
+      </select>
+    </label>
+
+    <label>제목
+      <input type="text" name="title" required />
+    </label>
+
+    <label>내용
+      <textarea name="content" rows="5" required></textarea>
+    </label>
+
+    <label>이미지 (선택)
+      <input type="file" name="image" accept="image/*" />
+    </label>
+
+    <button type="submit" class="cta-main">등록</button>
+  </form>
+</section>
+
+<%- include('partials/layout-end') %>

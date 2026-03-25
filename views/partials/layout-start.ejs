@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="<%= ctx.lang %>">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= title %> | <%= ctx.settings.siteName %></title>
+    <link rel="stylesheet" href="/assets/css/style.css" />
+  </head>
+  <body class="theme-<%= ctx.themeMode %>" style="<%- ctx.settings.backgroundStyle %>">
+    <div class="app-shell">
+      <%- include('partials/header') %>
+
+      <% if (ctx.flash) { %>
+        <div class="flash <%= ctx.flash.type %>"><%= ctx.flash.message %></div>
+      <% } %>
+
+      <main class="page-container">

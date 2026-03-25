@@ -1,0 +1,46 @@
+<header class="site-header" style="--header-color:<%= ctx.settings.headerColor %>">
+  <div class="header-top">
+    <a href="/main" class="brand-box">
+      <% if (ctx.settings.headerSymbolPath) { %>
+        <img src="<%= ctx.settings.headerSymbolPath %>" alt="symbol" class="brand-symbol" />
+      <% } else { %>
+        <span class="brand-symbol-fallback">CL</span>
+      <% } %>
+
+      <% if (ctx.settings.headerLogoPath) { %>
+        <img src="<%= ctx.settings.headerLogoPath %>" alt="<%= ctx.settings.siteName %>" class="brand-logo" />
+      <% } else { %>
+        <span class="brand-text"><%= ctx.settings.siteName %></span>
+      <% } %>
+    </a>
+
+    <div class="header-actions">
+      <a href="/set-lang/<%= ctx.lang === 'ko' ? 'en' : 'ko' %>" class="chip ghost">
+        <%= ctx.lang === 'ko' ? 'EN' : 'KR' %>
+      </a>
+      <a href="/toggle-theme" class="chip ghost"><%= ctx.themeMode === 'day' ? 'Night' : 'Day' %></a>
+
+      <% if (ctx.currentUser) { %>
+        <span class="chip muted"><%= ctx.currentUser.username %></span>
+        <% if (ctx.isAdmin) { %>
+          <a href="/admin" class="chip dark"><%= ctx.t('admin') %></a>
+        <% } %>
+        <form method="post" action="/logout" class="inline-form">
+          <button type="submit" class="chip"><%= ctx.t('logout') %></button>
+        </form>
+      <% } else { %>
+        <a href="/login" class="chip"><%= ctx.t('login') %></a>
+        <a href="/signup" class="chip dark"><%= ctx.t('signup') %></a>
+      <% } %>
+    </div>
+  </div>
+
+  <nav class="menu-scroller">
+    <% ctx.menus.forEach((menu) => { 
+      const active = requestPath === menu.path || (menu.path !== '/main' && requestPath.startsWith(menu.path + '/'));
+      const menuLabel = ctx.lang === 'en' ? menu.labelEn : menu.labelKo;
+    %>
+      <a href="<%= menu.path %>" class="menu-pill <%= active ? 'active' : '' %>"><%= menuLabel %></a>
+    <% }) %>
+  </nav>
+</header>

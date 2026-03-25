@@ -1,0 +1,1052 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+import express from 'express';
+import session from 'express-session';
+import cookieParser from 'cookie-parser';
+import multer from 'multer';
+import bcrypt from 'bcryptjs';
+import { db, initDb, getDefaultMenus, getPostCounts, getSetting, getVisitCounts, incrementVisit, setSetting } from './src/db.js';
+import { resolveLanguage, t } from './src/i18n.js';
+
+initDb();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = Number(process.env.PORT || 3100);
+
+const uploadStorage = multer.diskStorage({
+  destination: path.join(__dirname, 'uploads'),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    const safeExt = ext && ext.length <= 10 ? ext : '.jpg';
+    cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${safeExt}`);
+  }
+});
+
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+app.use('/assets', express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || 'chrono-lab-local-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 14,
+      httpOnly: true,
+      sameSite: 'lax'
+    }
+  })
+);
+
+function toKstDate() {
+  const now = new Date();
+  const kst = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+  const y = kst.getFullYear();
+  const m = String(kst.getMonth() + 1).padStart(2, '0');
+  const d = String(kst.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseMenus(rawMenus) {
+  try {
+    const parsed = JSON.parse(rawMenus);
+    if (!Array.isArray(parsed)) {
+      return getDefaultMenus();
+    }
+
+    return parsed
+      .filter((menu) => menu && menu.path)
+      .map((menu, idx) => ({
+        id: String(menu.id || `menu-${idx + 1}`),
+        labelKo: String(menu.labelKo || menu.labelEn || `메뉴${idx + 1}`),
+        labelEn: String(menu.labelEn || menu.labelKo || `Menu${idx + 1}`),
+        path: String(menu.path)
+      }));
+  } catch {
+    return getDefaultMenus();
+  }
+}
+
+function setFlash(req, type, message) {
+  req.session.flash = { type, message };
+}
+
+function getFlash(req) {
+  const flash = req.session.flash || null;
+  delete req.session.flash;
+  return flash;
+}
+
+function fileUrl(file) {
+  if (!file) {
+    return '';
+  }
+  return `/uploads/${file.filename}`;
+}
+
+function formatPrice(value) {
+  return Number(value || 0).toLocaleString('ko-KR');
+}
+
+function generateOrderNo() {
+  const datePart = toKstDate().replaceAll('-', '');
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `CL-${datePart}-${random}`;
+}
+
+function maskUsername(username = '') {
+  if (username.length <= 2) {
+    return `${username.slice(0, 1)}*`;
+  }
+  return `${username.slice(0, 2)}${'*'.repeat(username.length - 2)}`;
+}
+
+function sanitizePath(pathValue = '') {
+  if (!pathValue) {
+    return '/main';
+  }
+  if (pathValue.startsWith('/')) {
+    return pathValue;
+  }
+  return `/${pathValue}`;
+}
+
+function loadUser(req, res, next) {
+  if (!req.session.userId) {
+    req.user = null;
+    return next();
+  }
+
+  const user = db
+    .prepare('SELECT id, email, username, is_admin, created_at FROM users WHERE id = ? LIMIT 1')
+    .get(req.session.userId);
+
+  if (!user) {
+    req.session.userId = null;
+    req.session.isAdmin = false;
+    req.user = null;
+    return next();
+  }
+
+  req.user = {
+    id: Number(user.id),
+    email: user.email,
+    username: user.username,
+    isAdmin: Number(user.is_admin) === 1,
+    createdAt: user.created_at
+  };
+
+  req.session.isAdmin = req.user.isAdmin;
+
+  return next();
+}
+
+app.use(loadUser);
+
+app.use((req, res, next) => {
+  const fallbackLanguage = getSetting('languageDefault', 'ko');
+  const lang = resolveLanguage(req.query.lang || req.cookies.lang, fallbackLanguage);
+  if (req.query.lang === 'ko' || req.query.lang === 'en') {
+    res.cookie('lang', lang, { maxAge: 1000 * 60 * 60 * 24 * 365, sameSite: 'lax' });
+  }
+
+  const themeMode = req.cookies.themeMode === 'night' ? 'night' : 'day';
+  const today = toKstDate();
+
+  if (!req.path.startsWith('/admin') && !req.path.startsWith('/assets') && !req.path.startsWith('/uploads')) {
+    if (req.session.lastVisitDate !== today) {
+      incrementVisit(today);
+      req.session.lastVisitDate = today;
+    }
+  }
+
+  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
+
+  const headerColor = getSetting('headerColor', '#111827');
+  const backgroundType = getSetting('backgroundType', 'color');
+  const backgroundValue = getSetting('backgroundValue', '#f7f7f8');
+
+  let backgroundStyle = `background: ${backgroundValue};`;
+  if (backgroundType === 'image' && backgroundValue) {
+    backgroundStyle = `background-image: url('${backgroundValue}'); background-size: cover; background-position: center;`;
+  }
+
+  const popupNotice = db
+    .prepare('SELECT id, title, content, image_path FROM notices WHERE is_popup = 1 ORDER BY id DESC LIMIT 1')
+    .get();
+  const footerNotices = db
+    .prepare('SELECT id, title FROM notices ORDER BY id DESC LIMIT 5')
+    .all();
+
+  const visitCounts = getVisitCounts(today);
+  const postCounts = getPostCounts(today);
+
+  res.locals.ctx = {
+    lang,
+    t: (key) => t(lang, key),
+    themeMode,
+    currentUser: req.user,
+    isAdmin: Boolean(req.user?.isAdmin),
+    flash: getFlash(req),
+    formatPrice,
+    menus,
+    settings: {
+      siteName: getSetting('siteName', 'Chrono Lab'),
+      headerColor,
+      headerLogoPath: getSetting('headerLogoPath', ''),
+      headerSymbolPath: getSetting('headerSymbolPath', ''),
+      footerLogoPath: getSetting('footerLogoPath', ''),
+      backgroundType,
+      backgroundValue,
+      backgroundStyle,
+      bankAccountInfo: getSetting('bankAccountInfo', ''),
+      contactInfo: getSetting('contactInfo', ''),
+      businessInfo: getSetting('businessInfo', '')
+    },
+    metrics: {
+      visitToday: visitCounts.today,
+      visitTotal: visitCounts.total,
+      postToday: postCounts.today,
+      postTotal: postCounts.total
+    },
+    popupNotice: popupNotice
+      ? {
+          id: Number(popupNotice.id),
+          title: popupNotice.title,
+          content: popupNotice.content,
+          imagePath: popupNotice.image_path || ''
+        }
+      : null,
+    footerNotices
+  };
+  res.locals.requestPath = req.path;
+
+  next();
+});
+
+function requireAuth(req, res, next) {
+  if (!req.user) {
+    setFlash(req, 'error', '로그인이 필요합니다.');
+    return res.redirect('/login');
+  }
+  return next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.user || !req.user.isAdmin) {
+    return res.redirect('/admin/login');
+  }
+  return next();
+}
+
+app.get('/', (req, res) => {
+  res.redirect('/main');
+});
+
+app.get('/notices', (req, res) => res.redirect('/notice'));
+app.get('/reviews', (req, res) => res.redirect('/review'));
+app.get('/inquiries', (req, res) => res.redirect('/inquiry'));
+
+app.get('/set-lang/:lang', (req, res) => {
+  const language = resolveLanguage(req.params.lang, 'ko');
+  res.cookie('lang', language, { maxAge: 1000 * 60 * 60 * 24 * 365, sameSite: 'lax' });
+  res.redirect(req.get('referer') || '/main');
+});
+
+app.get('/toggle-theme', (req, res) => {
+  const current = req.cookies.themeMode === 'night' ? 'night' : 'day';
+  const nextTheme = current === 'night' ? 'day' : 'night';
+  res.cookie('themeMode', nextTheme, { maxAge: 1000 * 60 * 60 * 24 * 365, sameSite: 'lax' });
+  res.redirect(req.get('referer') || '/main');
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).json({ ok: true, service: 'chrono-lab', timestamp: new Date().toISOString() });
+});
+
+app.get('/main', (req, res) => {
+  const featuredProducts = db
+    .prepare(
+      `
+        SELECT id, brand, model, sub_model, price, image_path, shipping_period
+        FROM products
+        WHERE is_active = 1
+        ORDER BY id DESC
+        LIMIT 8
+      `
+    )
+    .all();
+
+  const latestNotices = db
+    .prepare(
+      `
+        SELECT id, title, created_at
+        FROM notices
+        ORDER BY id DESC
+        LIMIT 5
+      `
+    )
+    .all();
+
+  res.render('main', { title: 'Main', featuredProducts, latestNotices });
+});
+
+app.get('/shop', (req, res) => {
+  const brand = String(req.query.brand || '').trim();
+  const model = String(req.query.model || '').trim();
+
+  const brands = db
+    .prepare(
+      `
+        SELECT DISTINCT brand
+        FROM products
+        WHERE is_active = 1
+        ORDER BY brand ASC
+      `
+    )
+    .all()
+    .map((row) => row.brand);
+
+  const models = brand
+    ? db
+        .prepare(
+          `
+            SELECT DISTINCT model
+            FROM products
+            WHERE is_active = 1 AND brand = ?
+            ORDER BY model ASC
+          `
+        )
+        .all(brand)
+        .map((row) => row.model)
+    : [];
+
+  const where = ['is_active = 1'];
+  const params = [];
+
+  if (brand) {
+    where.push('brand = ?');
+    params.push(brand);
+  }
+
+  if (model) {
+    where.push('model = ?');
+    params.push(model);
+  }
+
+  const products = db
+    .prepare(
+      `
+        SELECT id, brand, model, sub_model, price, image_path, shipping_period, case_material, movement
+        FROM products
+        WHERE ${where.join(' AND ')}
+        ORDER BY id DESC
+      `
+    )
+    .all(...params);
+
+  res.render('shop', {
+    title: 'Shop',
+    brand,
+    model,
+    brands,
+    models,
+    products
+  });
+});
+
+app.get('/shop/item/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).render('simple-error', { title: 'Error', message: '잘못된 상품입니다.' });
+  }
+
+  const product = db.prepare('SELECT * FROM products WHERE id = ? AND is_active = 1 LIMIT 1').get(id);
+
+  if (!product) {
+    return res.status(404).render('simple-error', { title: 'Not Found', message: '상품을 찾을 수 없습니다.' });
+  }
+
+  const similar = db
+    .prepare(
+      `
+        SELECT id, brand, model, sub_model, price, image_path
+        FROM products
+        WHERE is_active = 1 AND brand = ? AND id != ?
+        ORDER BY id DESC
+        LIMIT 6
+      `
+    )
+    .all(product.brand, product.id);
+
+  res.render('product-detail', { title: 'Product', product, similar });
+});
+
+app.post('/order/create', (req, res) => {
+  const productId = Number(req.body.productId);
+  const buyerName = String(req.body.buyerName || '').trim();
+  const buyerContact = String(req.body.buyerContact || '').trim();
+  const buyerAddress = String(req.body.buyerAddress || '').trim();
+  const bankDepositorName = String(req.body.bankDepositorName || '').trim();
+  const quantity = Math.max(1, Number(req.body.quantity || 1));
+
+  if (!productId || !buyerName || !buyerContact || !buyerAddress || !bankDepositorName) {
+    setFlash(req, 'error', '필수 입력값을 모두 작성해 주세요.');
+    return res.redirect(`/shop/item/${productId || ''}`);
+  }
+
+  const product = db.prepare('SELECT id, price FROM products WHERE id = ? AND is_active = 1 LIMIT 1').get(productId);
+  if (!product) {
+    setFlash(req, 'error', '유효하지 않은 상품입니다.');
+    return res.redirect('/shop');
+  }
+
+  let orderNo = generateOrderNo();
+  while (db.prepare('SELECT id FROM orders WHERE order_no = ? LIMIT 1').get(orderNo)) {
+    orderNo = generateOrderNo();
+  }
+
+  const totalPrice = Number(product.price) * quantity;
+
+  db.prepare(
+    `
+      INSERT INTO orders (
+        order_no,
+        product_id,
+        buyer_name,
+        buyer_contact,
+        buyer_address,
+        bank_depositor_name,
+        quantity,
+        total_price,
+        status,
+        created_by_user_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING_TRANSFER', ?)
+    `
+  ).run(
+    orderNo,
+    productId,
+    buyerName,
+    buyerContact,
+    buyerAddress,
+    bankDepositorName,
+    quantity,
+    totalPrice,
+    req.user ? req.user.id : null
+  );
+
+  res.redirect(`/shop/order-complete/${orderNo}`);
+});
+
+app.get('/shop/order-complete/:orderNo', (req, res) => {
+  const orderNo = String(req.params.orderNo || '').trim();
+  const order = db
+    .prepare(
+      `
+        SELECT o.*, p.brand, p.model, p.sub_model
+        FROM orders o
+        JOIN products p ON p.id = o.product_id
+        WHERE o.order_no = ?
+        LIMIT 1
+      `
+    )
+    .get(orderNo);
+
+  if (!order) {
+    return res.status(404).render('simple-error', { title: 'Not Found', message: '주문을 찾을 수 없습니다.' });
+  }
+
+  res.render('order-complete', { title: 'Order Complete', order });
+});
+
+app.get('/notice', (req, res) => {
+  const notices = db
+    .prepare('SELECT id, title, image_path, is_popup, created_at FROM notices ORDER BY id DESC')
+    .all();
+  res.render('notice-list', { title: 'Notice', notices });
+});
+
+app.get('/notice/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const notice = db.prepare('SELECT * FROM notices WHERE id = ? LIMIT 1').get(id);
+  if (!notice) {
+    return res.status(404).render('simple-error', { title: 'Not Found', message: '공지사항이 없습니다.' });
+  }
+  res.render('notice-detail', { title: 'Notice Detail', notice });
+});
+
+app.get('/qc', (req, res) => {
+  const orderNo = String(req.query.orderNo || '').trim();
+  const items = orderNo
+    ? db
+        .prepare('SELECT * FROM qc_items WHERE order_no = ? ORDER BY id DESC')
+        .all(orderNo)
+    : db.prepare('SELECT * FROM qc_items ORDER BY id DESC LIMIT 30').all();
+
+  res.render('qc', { title: 'QC', orderNo, items });
+});
+
+app.get('/review', (req, res) => {
+  const reviews = db
+    .prepare(
+      `
+        SELECT r.id, r.title, r.content, r.image_path, r.created_at, u.username, p.brand, p.model, p.sub_model
+        FROM reviews r
+        JOIN users u ON u.id = r.user_id
+        LEFT JOIN products p ON p.id = r.product_id
+        ORDER BY r.id DESC
+      `
+    )
+    .all();
+
+  res.render('review-list', { title: 'Review', reviews, maskUsername });
+});
+
+app.get('/review/new', requireAuth, (req, res) => {
+  const products = db
+    .prepare('SELECT id, brand, model, sub_model FROM products WHERE is_active = 1 ORDER BY id DESC')
+    .all();
+  res.render('review-form', { title: 'Write Review', products });
+});
+
+app.post('/review/new', requireAuth, upload.single('image'), (req, res) => {
+  const title = String(req.body.title || '').trim();
+  const content = String(req.body.content || '').trim();
+  const productId = req.body.productId ? Number(req.body.productId) : null;
+
+  if (!title || !content) {
+    setFlash(req, 'error', '제목과 내용을 입력해 주세요.');
+    return res.redirect('/review/new');
+  }
+
+  db.prepare(
+    `
+      INSERT INTO reviews (user_id, product_id, title, content, image_path)
+      VALUES (?, ?, ?, ?, ?)
+    `
+  ).run(req.user.id, productId || null, title, content, fileUrl(req.file));
+
+  setFlash(req, 'success', '후기가 등록되었습니다.');
+  res.redirect('/review');
+});
+
+app.get('/inquiry', (req, res) => {
+  const inquiries = db
+    .prepare(
+      `
+        SELECT i.id, i.title, i.created_at, i.reply_content, u.username, i.user_id
+        FROM inquiries i
+        JOIN users u ON u.id = i.user_id
+        ORDER BY i.id DESC
+      `
+    )
+    .all()
+    .map((row) => ({
+      ...row,
+      writer: maskUsername(row.username),
+      canOpen: Boolean(req.user && (req.user.isAdmin || req.user.id === Number(row.user_id)))
+    }));
+
+  res.render('inquiry-list', { title: 'Inquiry', inquiries });
+});
+
+app.get('/inquiry/new', requireAuth, (req, res) => {
+  res.render('inquiry-form', { title: 'Write Inquiry' });
+});
+
+app.post('/inquiry/new', requireAuth, upload.single('image'), (req, res) => {
+  const title = String(req.body.title || '').trim();
+  const content = String(req.body.content || '').trim();
+
+  if (!title || !content) {
+    setFlash(req, 'error', '제목과 내용을 입력해 주세요.');
+    return res.redirect('/inquiry/new');
+  }
+
+  db.prepare(
+    `
+      INSERT INTO inquiries (user_id, title, content, image_path)
+      VALUES (?, ?, ?, ?)
+    `
+  ).run(req.user.id, title, content, fileUrl(req.file));
+
+  setFlash(req, 'success', '문의가 등록되었습니다.');
+  res.redirect('/inquiry');
+});
+
+app.get('/inquiry/:id', (req, res) => {
+  const id = Number(req.params.id);
+  const inquiry = db
+    .prepare(
+      `
+        SELECT i.*, u.username
+        FROM inquiries i
+        JOIN users u ON u.id = i.user_id
+        WHERE i.id = ?
+        LIMIT 1
+      `
+    )
+    .get(id);
+
+  if (!inquiry) {
+    return res.status(404).render('simple-error', { title: 'Not Found', message: '문의를 찾을 수 없습니다.' });
+  }
+
+  const canOpen = Boolean(req.user && (req.user.isAdmin || req.user.id === Number(inquiry.user_id)));
+
+  res.render('inquiry-detail', {
+    title: 'Inquiry Detail',
+    inquiry,
+    canOpen,
+    writerMasked: maskUsername(inquiry.username)
+  });
+});
+
+app.get('/signup', (req, res) => {
+  res.render('signup', { title: 'Sign up' });
+});
+
+app.post('/signup', async (req, res) => {
+  const email = String(req.body.email || '').trim();
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+  const passwordConfirm = String(req.body.passwordConfirm || '');
+  const agreed = req.body.agreedTerms === 'on';
+
+  const usernameRegex = /^[A-Za-z0-9_]{4,20}$/;
+
+  if (!email || !username || !password || !passwordConfirm) {
+    setFlash(req, 'error', '필수 항목을 입력해 주세요.');
+    return res.redirect('/signup');
+  }
+
+  if (!usernameRegex.test(username)) {
+    setFlash(req, 'error', '아이디는 4~20자 영문/숫자/언더스코어만 사용 가능합니다.');
+    return res.redirect('/signup');
+  }
+
+  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    setFlash(req, 'error', '비밀번호는 영문/숫자 포함 8자 이상이어야 합니다.');
+    return res.redirect('/signup');
+  }
+
+  if (password !== passwordConfirm) {
+    setFlash(req, 'error', '비밀번호 확인이 일치하지 않습니다.');
+    return res.redirect('/signup');
+  }
+
+  if (!agreed) {
+    setFlash(req, 'error', '약관 동의가 필요합니다.');
+    return res.redirect('/signup');
+  }
+
+  try {
+    const hash = await bcrypt.hash(password, 10);
+    const result = db.prepare(
+      'INSERT INTO users (email, username, password_hash, agreed_terms, is_admin) VALUES (?, ?, ?, 1, 0)'
+    ).run(email, username, hash);
+
+    req.session.userId = Number(result.lastInsertRowid);
+    req.session.isAdmin = false;
+
+    setFlash(req, 'success', '회원가입이 완료되었습니다.');
+    res.redirect('/main');
+  } catch {
+    setFlash(req, 'error', '이미 사용 중인 이메일 또는 아이디입니다.');
+    res.redirect('/signup');
+  }
+});
+
+app.get('/login', (req, res) => {
+  res.render('login', { title: 'Login' });
+});
+
+app.post('/login', async (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+
+  if (!username || !password) {
+    setFlash(req, 'error', '아이디와 비밀번호를 입력해 주세요.');
+    return res.redirect('/login');
+  }
+
+  const user = db
+    .prepare('SELECT id, username, password_hash, is_admin FROM users WHERE username = ? LIMIT 1')
+    .get(username);
+
+  if (!user) {
+    setFlash(req, 'error', '로그인 정보가 올바르지 않습니다.');
+    return res.redirect('/login');
+  }
+
+  const valid = await bcrypt.compare(password, user.password_hash);
+  if (!valid) {
+    setFlash(req, 'error', '로그인 정보가 올바르지 않습니다.');
+    return res.redirect('/login');
+  }
+
+  req.session.userId = Number(user.id);
+  req.session.isAdmin = Number(user.is_admin) === 1;
+
+  setFlash(req, 'success', '로그인되었습니다.');
+  res.redirect('/main');
+});
+
+app.post('/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/main');
+  });
+});
+
+app.get('/admin/login', (req, res) => {
+  if (req.user?.isAdmin) {
+    return res.redirect('/admin');
+  }
+  res.render('admin-login', { title: 'Admin Login' });
+});
+
+app.post('/admin/login', async (req, res) => {
+  const username = String(req.body.username || '').trim();
+  const password = String(req.body.password || '');
+
+  const user = db
+    .prepare('SELECT id, password_hash, is_admin FROM users WHERE username = ? LIMIT 1')
+    .get(username);
+
+  if (!user || Number(user.is_admin) !== 1) {
+    setFlash(req, 'error', '어드민 계정이 아닙니다.');
+    return res.redirect('/admin/login');
+  }
+
+  const valid = await bcrypt.compare(password, user.password_hash);
+  if (!valid) {
+    setFlash(req, 'error', '로그인 정보가 올바르지 않습니다.');
+    return res.redirect('/admin/login');
+  }
+
+  req.session.userId = Number(user.id);
+  req.session.isAdmin = true;
+
+  res.redirect('/admin');
+});
+
+app.get('/admin/logout', (req, res) => {
+  req.session.destroy(() => {
+    res.redirect('/admin/login');
+  });
+});
+
+app.get('/admin', requireAdmin, (req, res) => {
+  const settings = {
+    siteName: getSetting('siteName', 'Chrono Lab'),
+    headerColor: getSetting('headerColor', '#111827'),
+    headerLogoPath: getSetting('headerLogoPath', ''),
+    headerSymbolPath: getSetting('headerSymbolPath', ''),
+    footerLogoPath: getSetting('footerLogoPath', ''),
+    backgroundType: getSetting('backgroundType', 'color'),
+    backgroundValue: getSetting('backgroundValue', '#f7f7f8'),
+    bankAccountInfo: getSetting('bankAccountInfo', ''),
+    contactInfo: getSetting('contactInfo', ''),
+    businessInfo: getSetting('businessInfo', ''),
+    languageDefault: getSetting('languageDefault', 'ko'),
+    menusJson: JSON.stringify(parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus()))), null, 2)
+  };
+
+  const products = db.prepare('SELECT * FROM products ORDER BY id DESC LIMIT 100').all();
+  const orders = db
+    .prepare(
+      `
+        SELECT o.*, p.brand, p.model, p.sub_model
+        FROM orders o
+        JOIN products p ON p.id = o.product_id
+        ORDER BY o.id DESC
+        LIMIT 100
+      `
+    )
+    .all();
+  const notices = db.prepare('SELECT * FROM notices ORDER BY id DESC LIMIT 50').all();
+  const qcs = db.prepare('SELECT * FROM qc_items ORDER BY id DESC LIMIT 50').all();
+  const inquiries = db
+    .prepare(
+      `
+        SELECT i.*, u.username
+        FROM inquiries i
+        JOIN users u ON u.id = i.user_id
+        ORDER BY i.id DESC
+        LIMIT 50
+      `
+    )
+    .all();
+
+  res.render('admin-dashboard', {
+    title: 'Admin Dashboard',
+    settings,
+    products,
+    orders,
+    notices,
+    qcs,
+    inquiries,
+    formatPrice
+  });
+});
+
+app.post(
+  '/admin/settings',
+  requireAdmin,
+  upload.fields([
+    { name: 'headerLogo', maxCount: 1 },
+    { name: 'headerSymbol', maxCount: 1 },
+    { name: 'footerLogo', maxCount: 1 },
+    { name: 'backgroundImage', maxCount: 1 }
+  ]),
+  (req, res) => {
+    const siteName = String(req.body.siteName || 'Chrono Lab').trim();
+    const headerColor = String(req.body.headerColor || '#111827').trim();
+    const backgroundType = String(req.body.backgroundType || 'color').trim();
+    const backgroundColor = String(req.body.backgroundColor || '#f7f7f8').trim();
+    const bankAccountInfo = String(req.body.bankAccountInfo || '').trim();
+    const contactInfo = String(req.body.contactInfo || '').trim();
+    const businessInfo = String(req.body.businessInfo || '').trim();
+    const languageDefault = resolveLanguage(req.body.languageDefault || 'ko', 'ko');
+
+    setSetting('siteName', siteName || 'Chrono Lab');
+    setSetting('headerColor', headerColor || '#111827');
+    setSetting('backgroundType', backgroundType === 'image' ? 'image' : 'color');
+    setSetting('backgroundValue', backgroundType === 'image' ? getSetting('backgroundValue', '#f7f7f8') : backgroundColor);
+    setSetting('bankAccountInfo', bankAccountInfo);
+    setSetting('contactInfo', contactInfo);
+    setSetting('businessInfo', businessInfo);
+    setSetting('languageDefault', languageDefault);
+
+    if (req.body.menusJson) {
+      try {
+        const parsedMenus = parseMenus(req.body.menusJson);
+        setSetting('menus', JSON.stringify(parsedMenus));
+      } catch {
+        setFlash(req, 'error', '메뉴 JSON 형식이 올바르지 않습니다.');
+        return res.redirect('/admin');
+      }
+    }
+
+    const headerLogoFile = req.files?.headerLogo?.[0];
+    const headerSymbolFile = req.files?.headerSymbol?.[0];
+    const footerLogoFile = req.files?.footerLogo?.[0];
+    const backgroundImageFile = req.files?.backgroundImage?.[0];
+
+    if (headerLogoFile) {
+      setSetting('headerLogoPath', fileUrl(headerLogoFile));
+    }
+    if (headerSymbolFile) {
+      setSetting('headerSymbolPath', fileUrl(headerSymbolFile));
+    }
+    if (footerLogoFile) {
+      setSetting('footerLogoPath', fileUrl(footerLogoFile));
+    }
+    if (backgroundImageFile) {
+      setSetting('backgroundType', 'image');
+      setSetting('backgroundValue', fileUrl(backgroundImageFile));
+    }
+
+    setFlash(req, 'success', '사이트 설정이 저장되었습니다.');
+    res.redirect('/admin');
+  }
+);
+
+app.post('/admin/menu/add', requireAdmin, (req, res) => {
+  const labelKo = String(req.body.labelKo || '').trim();
+  const labelEn = String(req.body.labelEn || '').trim();
+  const menuPath = sanitizePath(String(req.body.path || '').trim());
+
+  if (!labelKo || !labelEn || !menuPath) {
+    setFlash(req, 'error', '메뉴 이름과 경로를 모두 입력해 주세요.');
+    return res.redirect('/admin');
+  }
+
+  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
+  const id = `menu-${Date.now()}`;
+  menus.push({ id, labelKo, labelEn, path: menuPath });
+  setSetting('menus', JSON.stringify(menus));
+
+  setFlash(req, 'success', '메뉴가 추가되었습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/menu/remove/:id', requireAdmin, (req, res) => {
+  const id = String(req.params.id || '');
+  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
+  const nextMenus = menus.filter((menu) => menu.id !== id);
+  setSetting('menus', JSON.stringify(nextMenus));
+  setFlash(req, 'success', '메뉴가 삭제되었습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/product/create', requireAdmin, upload.single('image'), (req, res) => {
+  const brand = String(req.body.brand || '').trim();
+  const model = String(req.body.model || '').trim();
+  const subModel = String(req.body.subModel || '').trim();
+  const reference = String(req.body.reference || '').trim();
+  const factoryName = String(req.body.factoryName || '').trim();
+  const versionName = String(req.body.versionName || '').trim();
+  const movement = String(req.body.movement || '').trim();
+  const caseSize = String(req.body.caseSize || '').trim();
+  const dialColor = String(req.body.dialColor || '').trim();
+  const caseMaterial = String(req.body.caseMaterial || '').trim();
+  const strapMaterial = String(req.body.strapMaterial || '').trim();
+  const features = String(req.body.features || '').trim();
+  const price = Number(req.body.price || 0);
+  const shippingPeriod = String(req.body.shippingPeriod || '').trim();
+
+  if (!brand || !model || !subModel || !price) {
+    setFlash(req, 'error', '브랜드/모델/세부모델/가격은 필수입니다.');
+    return res.redirect('/admin');
+  }
+
+  db.prepare(
+    `
+      INSERT INTO products (
+        brand,
+        model,
+        sub_model,
+        reference,
+        factory_name,
+        version_name,
+        movement,
+        case_size,
+        dial_color,
+        case_material,
+        strap_material,
+        features,
+        price,
+        shipping_period,
+        image_path
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+  ).run(
+    brand,
+    model,
+    subModel,
+    reference,
+    factoryName,
+    versionName,
+    movement,
+    caseSize,
+    dialColor,
+    caseMaterial,
+    strapMaterial,
+    features,
+    price,
+    shippingPeriod,
+    fileUrl(req.file)
+  );
+
+  setFlash(req, 'success', '상품이 등록되었습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/product/:id/toggle', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const product = db.prepare('SELECT id, is_active FROM products WHERE id = ? LIMIT 1').get(id);
+  if (!product) {
+    setFlash(req, 'error', '상품을 찾을 수 없습니다.');
+    return res.redirect('/admin');
+  }
+
+  const nextState = Number(product.is_active) === 1 ? 0 : 1;
+  db.prepare('UPDATE products SET is_active = ? WHERE id = ?').run(nextState, id);
+  setFlash(req, 'success', '상품 노출 상태를 변경했습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/notice/create', requireAdmin, upload.single('image'), (req, res) => {
+  const title = String(req.body.title || '').trim();
+  const content = String(req.body.content || '').trim();
+  const isPopup = req.body.isPopup === 'on' ? 1 : 0;
+
+  if (!title || !content) {
+    setFlash(req, 'error', '공지 제목과 내용을 입력해 주세요.');
+    return res.redirect('/admin');
+  }
+
+  db.prepare('INSERT INTO notices (title, content, image_path, is_popup) VALUES (?, ?, ?, ?)').run(
+    title,
+    content,
+    fileUrl(req.file),
+    isPopup
+  );
+
+  setFlash(req, 'success', '공지사항이 등록되었습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/qc/create', requireAdmin, upload.single('image'), (req, res) => {
+  const orderNo = String(req.body.orderNo || '').trim();
+  const note = String(req.body.note || '').trim();
+
+  if (!orderNo || !req.file) {
+    setFlash(req, 'error', '주문번호와 이미지를 입력해 주세요.');
+    return res.redirect('/admin');
+  }
+
+  db.prepare('INSERT INTO qc_items (order_no, image_path, note) VALUES (?, ?, ?)').run(
+    orderNo,
+    fileUrl(req.file),
+    note
+  );
+
+  setFlash(req, 'success', 'QC 항목이 등록되었습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/order/:id/status', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const status = String(req.body.status || 'PENDING_TRANSFER').trim();
+  const allowed = new Set(['PENDING_TRANSFER', 'TRANSFER_CONFIRMED', 'PREPARING', 'SHIPPED', 'DONE']);
+
+  if (!allowed.has(status)) {
+    setFlash(req, 'error', '허용되지 않은 상태값입니다.');
+    return res.redirect('/admin');
+  }
+
+  db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
+  setFlash(req, 'success', '주문 상태를 업데이트했습니다.');
+  res.redirect('/admin');
+});
+
+app.post('/admin/inquiry/:id/reply', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  const replyContent = String(req.body.replyContent || '').trim();
+
+  if (!replyContent) {
+    setFlash(req, 'error', '답변 내용을 입력해 주세요.');
+    return res.redirect('/admin');
+  }
+
+  db.prepare('UPDATE inquiries SET reply_content = ?, replied_at = datetime(\'now\') WHERE id = ?').run(
+    replyContent,
+    id
+  );
+
+  setFlash(req, 'success', '문의 답변이 등록되었습니다.');
+  res.redirect('/admin');
+});
+
+app.use((req, res) => {
+  res.status(404).render('simple-error', { title: 'Not Found', message: '페이지를 찾을 수 없습니다.' });
+});
+
+app.listen(PORT, () => {
+  // eslint-disable-next-line no-console
+  console.log(`Chrono Lab server running on http://localhost:${PORT}`);
+});

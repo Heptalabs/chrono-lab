@@ -1,0 +1,72 @@
+<%- include('partials/layout-start') %>
+
+<section class="detail-shell">
+  <div class="detail-visual">
+    <% if (product.image_path) { %>
+      <img src="<%= product.image_path %>" alt="<%= product.brand %> <%= product.model %>" />
+    <% } else { %>
+      <div class="image-fallback large">WATCH</div>
+    <% } %>
+  </div>
+
+  <div class="detail-card-dark">
+    <h2>₩<%= ctx.formatPrice(product.price) %></h2>
+    <h3><%= product.brand %> <%= product.model %> <%= product.sub_model %></h3>
+
+    <div class="spec-grid">
+      <span>Reference: <strong><%= product.reference || '-' %></strong></span>
+      <span>Factory: <strong><%= product.factory_name || '-' %></strong></span>
+      <span>Version: <strong><%= product.version_name || '-' %></strong></span>
+      <span>Movement: <strong><%= product.movement || '-' %></strong></span>
+      <span>Case Size: <strong><%= product.case_size || '-' %></strong></span>
+      <span>Dial: <strong><%= product.dial_color || '-' %></strong></span>
+      <span>Case: <strong><%= product.case_material || '-' %></strong></span>
+      <span>Bracelet/Strap: <strong><%= product.strap_material || '-' %></strong></span>
+      <span>배송기간: <strong><%= product.shipping_period || '-' %></strong></span>
+    </div>
+
+    <p class="feature-copy"><%= product.features || '-' %></p>
+
+    <form method="post" action="/order/create" class="order-form">
+      <input type="hidden" name="productId" value="<%= product.id %>" />
+      <label>수량
+        <input type="number" name="quantity" value="1" min="1" required />
+      </label>
+      <label>이름
+        <input type="text" name="buyerName" required />
+      </label>
+      <label>연락처
+        <input type="text" name="buyerContact" required />
+      </label>
+      <label>주소
+        <textarea name="buyerAddress" rows="2" required></textarea>
+      </label>
+      <label>입금자명
+        <input type="text" name="bankDepositorName" required />
+      </label>
+      <button type="submit" class="cta-main full"><%= ctx.t('buyNow') %></button>
+    </form>
+  </div>
+</section>
+
+<section class="block-card">
+  <h3>Similar Watches</h3>
+  <div class="product-grid compact">
+    <% if (similar.length === 0) { %>
+      <p>같은 브랜드의 다른 상품이 없습니다.</p>
+    <% } %>
+    <% similar.forEach((item) => { %>
+      <a href="/shop/item/<%= item.id %>" class="mini-product">
+        <% if (item.image_path) { %>
+          <img src="<%= item.image_path %>" alt="<%= item.brand %>" />
+        <% } else { %>
+          <div class="image-fallback">WATCH</div>
+        <% } %>
+        <strong><%= item.model %></strong>
+        <span>₩<%= ctx.formatPrice(item.price) %></span>
+      </a>
+    <% }) %>
+  </div>
+</section>
+
+<%- include('partials/layout-end') %>

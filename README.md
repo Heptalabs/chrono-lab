@@ -1,0 +1,46 @@
+# Chrono Lab
+
+시계 쇼핑몰 + 어드민 통합 프로젝트입니다.
+
+## 핵심 경로
+- `/main`
+- `/notice`
+- `/shop`
+- `/qc`
+- `/review`
+- `/inquiry`
+- `/admin`
+
+## 주요 기능
+- 비회원 주문: 구매번호 자동 생성 + 이름/연락처/주소/입금자명 저장
+- 회원가입/로그인: 이메일, 아이디, 비밀번호, 비밀번호확인, 약관동의
+- 쇼핑몰 필터: 브랜드(단일선택), 모델(브랜드 선택 시 표시)
+- 공지사항: 이미지 업로드, 팝업 노출, 7일간 보지 않기
+- QC: 구매번호 기준 이미지 조회
+- 구매후기: 로그인 회원만 작성 가능
+- 문의: 로그인 회원만 작성 가능, 작성자/어드민만 본문 열람 가능, 어드민 답변
+- 어드민 커스터마이징:
+  - 헤더 컬러
+  - 심볼/로고/푸터로고 업로드
+  - 메뉴 추가/삭제
+  - 배경 컬러/이미지
+  - 기본 언어(KR/EN)
+  - 공지/상품/QC/주문상태/문의답변 관리
+
+## 실행 방법
+```bash
+cd chrono-lab
+npm install
+npm run dev
+```
+
+- 브라우저: `http://localhost:3100/main`
+- 어드민 로그인: `http://localhost:3100/admin/login`
+- 초기 어드민 계정: `admin / Admin123!` (실서비스 전 반드시 변경)
+
+## 배포 메모
+이 프로젝트는 서버가 필요한 구조(Express + SQLite)이므로 GitHub Pages 단독 배포는 불가합니다.
+권장: Render(임시 도메인 빠른 확인) 또는 Railway.
+
+배포 상세 절차:
+- [DEPLOYMENT.md](/Users/heptalabs/Documents/New%20project/SJK/chrono-lab/DEPLOYMENT.md)

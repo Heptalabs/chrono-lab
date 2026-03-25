@@ -1,0 +1,68 @@
+<%- include('partials/layout-start') %>
+
+<section class="hero-wrap">
+  <div class="hero-image-pane">
+    <div class="hero-badge">Chrono Lab</div>
+    <h1><%= ctx.t('homeHeroTitle') %></h1>
+    <p><%= ctx.t('homeHeroSubtitle') %></p>
+    <a href="/shop" class="cta-main"><%= ctx.t('goToShop') %></a>
+  </div>
+
+  <div class="hero-dark-card">
+    <h3><%= ctx.t('welcome') %></h3>
+    <p><%= ctx.t('orderBankOnly') %></p>
+    <div class="hero-quick-grid">
+      <a href="/notice">공지사항</a>
+      <a href="/shop">쇼핑몰</a>
+      <a href="/qc">QC</a>
+      <a href="/review">구매후기</a>
+      <a href="/inquiry">문의</a>
+    </div>
+  </div>
+</section>
+
+<section class="block-card">
+  <div class="section-head">
+    <h2>Featured Watches</h2>
+    <a href="/shop">더보기</a>
+  </div>
+  <div class="product-grid">
+    <% featuredProducts.forEach((item) => { %>
+      <a href="/shop/item/<%= item.id %>" class="product-card">
+        <div class="product-image-box">
+          <% if (item.image_path) { %>
+            <img src="<%= item.image_path %>" alt="<%= item.brand %>" />
+          <% } else { %>
+            <div class="image-fallback">WATCH</div>
+          <% } %>
+        </div>
+        <div class="product-meta">
+          <strong><%= item.brand %> <%= item.model %></strong>
+          <span><%= item.sub_model %></span>
+          <em>₩<%= ctx.formatPrice(item.price) %></em>
+          <small>배송기간: <%= item.shipping_period || '-' %></small>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+</section>
+
+<section class="block-card">
+  <div class="section-head">
+    <h2>공지사항</h2>
+    <a href="/notice">전체보기</a>
+  </div>
+  <ul class="line-list">
+    <% if (latestNotices.length === 0) { %>
+      <li>아직 등록된 공지사항이 없습니다.</li>
+    <% } %>
+    <% latestNotices.forEach((item) => { %>
+      <li>
+        <a href="/notice/<%= item.id %>"><%= item.title %></a>
+        <span><%= item.created_at.slice(0, 10) %></span>
+      </li>
+    <% }) %>
+  </ul>
+</section>
+
+<%- include('partials/layout-end') %>

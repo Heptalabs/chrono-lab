@@ -1,0 +1,58 @@
+<%- include('partials/layout-start') %>
+
+<section class="block-card">
+  <div class="section-head">
+    <h2>Shop</h2>
+    <span class="muted-label">브랜드 1개만 선택 가능</span>
+  </div>
+
+  <div class="filter-group">
+    <h4>대분류 (브랜드)</h4>
+    <div class="chip-row">
+      <a href="/shop" class="chip <%= brand ? '' : 'dark' %>">전체</a>
+      <% brands.forEach((item) => { %>
+        <a href="/shop?brand=<%= encodeURIComponent(item) %>" class="chip <%= brand === item ? 'dark' : '' %>"><%= item %></a>
+      <% }) %>
+    </div>
+  </div>
+
+  <% if (brand) { %>
+    <div class="filter-group">
+      <h4>소분류 (모델)</h4>
+      <div class="chip-row">
+        <a href="/shop?brand=<%= encodeURIComponent(brand) %>" class="chip <%= model ? '' : 'dark' %>">전체</a>
+        <% models.forEach((item) => { %>
+          <a href="/shop?brand=<%= encodeURIComponent(brand) %>&model=<%= encodeURIComponent(item) %>" class="chip <%= model === item ? 'dark' : '' %>"><%= item %></a>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+</section>
+
+<section class="block-card">
+  <div class="product-grid">
+    <% if (products.length === 0) { %>
+      <p>조건에 맞는 상품이 없습니다.</p>
+    <% } %>
+
+    <% products.forEach((item) => { %>
+      <a href="/shop/item/<%= item.id %>" class="product-card">
+        <div class="product-image-box">
+          <% if (item.image_path) { %>
+            <img src="<%= item.image_path %>" alt="<%= item.brand %>" />
+          <% } else { %>
+            <div class="image-fallback">WATCH</div>
+          <% } %>
+        </div>
+        <div class="product-meta">
+          <strong><%= item.brand %> <%= item.model %></strong>
+          <span><%= item.sub_model %></span>
+          <small><%= item.case_material || '-' %> / <%= item.movement || '-' %></small>
+          <em>₩<%= ctx.formatPrice(item.price) %></em>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+</section>
+
+<%- include('partials/layout-end') %>
