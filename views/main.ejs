@@ -24,26 +24,38 @@
 
 <section class="block-card">
   <div class="section-head">
-    <h2>Featured Watches</h2>
+    <h2>쇼핑몰</h2>
     <a href="/shop">더보기</a>
   </div>
-  <div class="product-grid">
-    <% featuredProducts.forEach((item) => { %>
-      <a href="/shop/item/<%= item.id %>" class="product-card">
-        <div class="product-image-box">
-          <% if (item.image_path) { %>
-            <img src="<%= item.image_path %>" alt="<%= item.brand %>" />
-          <% } else { %>
-            <div class="image-fallback">WATCH</div>
+  <div class="shop-row-list">
+    <% groupedProducts.forEach((group) => { %>
+      <div class="shop-row-block">
+        <div class="shop-row-head">
+          <h3><%= group.groupName %></h3>
+        </div>
+        <div class="product-grid shop-row-grid">
+          <% if (group.products.length === 0) { %>
+            <p class="muted-label">등록된 상품이 없습니다.</p>
           <% } %>
+          <% group.products.forEach((item) => { %>
+            <a href="/shop/item/<%= item.id %>" class="product-card">
+              <div class="product-image-box">
+                <% if (item.image_path) { %>
+                  <img src="<%= item.image_path %>" alt="<%= item.brand %>" />
+                <% } else { %>
+                  <div class="image-fallback">WATCH</div>
+                <% } %>
+              </div>
+              <div class="product-meta">
+                <strong><%= item.brand %> <%= item.model %></strong>
+                <span><%= item.sub_model %></span>
+                <em>₩<%= ctx.formatPrice(item.price) %></em>
+                <small>배송기간: <%= item.shipping_period || '-' %></small>
+              </div>
+            </a>
+          <% }) %>
         </div>
-        <div class="product-meta">
-          <strong><%= item.brand %> <%= item.model %></strong>
-          <span><%= item.sub_model %></span>
-          <em>₩<%= ctx.formatPrice(item.price) %></em>
-          <small>배송기간: <%= item.shipping_period || '-' %></small>
-        </div>
-      </a>
+      </div>
     <% }) %>
   </div>
 </section>

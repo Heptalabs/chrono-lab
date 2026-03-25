@@ -396,6 +396,24 @@ body.theme-night .flash.error {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.shop-row-list {
+  display: grid;
+  gap: 14px;
+}
+
+.shop-row-block {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.shop-row-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
 .product-card {
   border: 1px solid var(--line);
   border-radius: 15px;

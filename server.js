@@ -415,17 +415,20 @@ app.get('/toggle-theme', (req, res) => {
 });
 
 app.get('/main', (req, res) => {
-  const featuredProducts = db
-    .prepare(
-      `
-        SELECT id, brand, model, sub_model, price, image_path, shipping_period
-        FROM products
-        WHERE is_active = 1
-        ORDER BY id DESC
-        LIMIT 8
-      `
-    )
-    .all();
+  const groupedProducts = SHOP_PRODUCT_GROUPS.map((groupName) => ({
+    groupName,
+    products: db
+      .prepare(
+        `
+          SELECT id, brand, model, sub_model, price, image_path, shipping_period
+          FROM products
+          WHERE is_active = 1 AND category_group = ?
+          ORDER BY id DESC
+          LIMIT 4
+        `
+      )
+      .all(groupName)
+  }));
 
   const latestNotices = db
     .prepare(
@@ -449,7 +452,7 @@ app.get('/main', (req, res) => {
     )
     .all();
 
-  res.render('main', { title: 'Main', featuredProducts, latestNotices, latestNews });
+  res.render('main', { title: 'Main', groupedProducts, latestNotices, latestNews });
 });
 
 app.get('/shop', (req, res) => {
