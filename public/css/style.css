@@ -948,7 +948,7 @@ td {
     margin-top: 0;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
-    border-bottom-left-radius: 22px;
+    border-bottom-left-radius: 0;
   }
 
   .detail-shell {
