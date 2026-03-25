@@ -207,14 +207,14 @@ function seedProducts() {
   const clearProductImages = db.prepare('DELETE FROM product_images WHERE product_id = ?');
   const insertProductImage = db.prepare(
     `
-      INSERT INTO product_images (product_id, image_path, sort_order)
+      INSERT OR IGNORE INTO product_images (product_id, image_path, sort_order)
       VALUES (?, ?, ?)
     `
   );
 
   const tx = db.transaction(() => {
     for (const item of PRODUCT_SEED_ITEMS) {
-      const images = Array.isArray(item.images) ? item.images.filter(Boolean) : [];
+      const images = Array.isArray(item.images) ? [...new Set(item.images.filter(Boolean))] : [];
       const primaryImage = images[0] || '';
 
       const values = [
