@@ -282,6 +282,9 @@ body.theme-night .flash.error {
   padding: 24px 20px;
   background: linear-gradient(165deg, #ececef 0%, #dadce2 70%, #d0d2da 100%);
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .hero-image-pane h1 {
@@ -315,6 +318,11 @@ body.theme-night .hero-badge {
   border-color: rgba(0, 0, 0, 0.1);
   background: rgba(255, 255, 255, 0.7);
   color: #2d3440;
+}
+
+.hero-image-pane .hero-badge,
+.hero-image-pane .cta-main {
+  align-self: flex-start;
 }
 
 .hero-dark-card {
