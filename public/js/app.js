@@ -15,6 +15,7 @@
     var shortEdge = Math.min(screenWidth, screenHeight);
     var viewportWidth = Number(window.innerWidth) || 0;
     var visualScale = Number(window.visualViewport && window.visualViewport.scale) || 1;
+    var visualViewportWidth = Number(window.visualViewport && window.visualViewport.width) || 0;
 
     if (!shortEdge || !viewportWidth) {
       return 1;
@@ -22,6 +23,13 @@
 
     if (shortEdge <= 540 && visualScale > 0 && visualScale < 0.95) {
       return Math.min(2.8, Math.max(1.2, 1 / visualScale));
+    }
+
+    if (visualViewportWidth > 0) {
+      var viewportRatio = viewportWidth / visualViewportWidth;
+      if (viewportRatio > 1.15) {
+        return Math.min(2.8, Math.max(1.2, viewportRatio));
+      }
     }
 
     var ratio = viewportWidth / shortEdge;
