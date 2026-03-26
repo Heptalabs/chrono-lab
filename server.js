@@ -26,6 +26,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT || 3100);
 const isProduction = process.env.NODE_ENV === 'production';
+const ASSET_VERSION = process.env.RENDER_GIT_COMMIT || `${Date.now()}`;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USERNAME_REGEX = /^[A-Za-z0-9_]{4,20}$/;
@@ -409,6 +410,7 @@ app.use((req, res, next) => {
   const postCounts = getPostCounts(today);
 
   res.locals.ctx = {
+    assetVersion: ASSET_VERSION,
     lang,
     t: (key) => t(lang, key),
     themeMode,

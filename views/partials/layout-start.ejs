@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><%= title %> | <%= ctx.settings.siteName %></title>
-    <link rel="stylesheet" href="/assets/css/style.css" />
+    <link rel="stylesheet" href="/assets/css/style.css?v=<%= encodeURIComponent(ctx.assetVersion) %>" />
   </head>
   <body class="theme-<%= ctx.themeMode %>" style="<%- ctx.settings.backgroundStyle %>">
     <div class="app-shell">
