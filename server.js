@@ -481,11 +481,13 @@ function requireAuth(req, res, next) {
 }
 
 function requireAdmin(req, res, next) {
-  if (!req.user || !req.user.isAdmin) {
-    return res.status(404).render('simple-error', {
-      title: 'Not Found',
-      message: '페이지를 찾을 수 없습니다.'
-    });
+  if (!req.user?.isAdmin) {
+    setFlash(
+      req,
+      'error',
+      req.user ? '관리자 계정으로 로그인해 주세요.' : '관리자 로그인이 필요합니다.'
+    );
+    return res.redirect('/admin/login');
   }
   return next();
 }
@@ -1363,8 +1365,11 @@ function renderAdminDashboard(req, res, activeTab) {
   });
 }
 
-app.get('/admin', requireAdmin, (req, res) => {
-  res.redirect('/admin/security');
+app.get('/admin', (req, res) => {
+  if (req.user?.isAdmin) {
+    return res.redirect('/admin/security');
+  }
+  return res.render('admin-login', { title: 'Admin Login' });
 });
 
 app.get('/admin/security', requireAdmin, (req, res) => renderAdminDashboard(req, res, 'security'));

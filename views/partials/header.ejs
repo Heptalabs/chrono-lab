@@ -51,10 +51,17 @@
       </a>
 
       <% if (ctx.currentUser) { %>
-        <span class="chip muted"><%= ctx.currentUser.username %></span>
-        <% if (ctx.isAdminPage) { %>
-          <a href="/admin/logout" class="chip"><%= ctx.lang === 'en' ? 'Admin Logout' : '어드민 로그아웃' %></a>
+        <% if (ctx.currentUser.isAdmin) { %>
+          <% if (ctx.isAdminPage) { %>
+            <a href="/admin/logout" class="chip"><%= ctx.lang === 'en' ? 'Admin Logout' : '어드민 로그아웃' %></a>
+          <% } else { %>
+            <a href="/admin" class="chip dark"><%= ctx.lang === 'en' ? 'Admin' : '어드민' %></a>
+            <form method="post" action="/logout" class="inline-form">
+              <button type="submit" class="chip"><%= ctx.t('logout') %></button>
+            </form>
+          <% } %>
         <% } else { %>
+          <span class="chip muted"><%= ctx.currentUser.username %></span>
           <a href="/mypage" class="chip"><%= ctx.t('myPage') %></a>
           <form method="post" action="/logout" class="inline-form">
             <button type="submit" class="chip"><%= ctx.t('logout') %></button>
