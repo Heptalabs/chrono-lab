@@ -1,4 +1,5 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="detail-shell">
   <div class="detail-visual detail-gallery" data-gallery>
@@ -8,7 +9,7 @@
           type="button"
           class="gallery-nav gallery-prev"
           data-gallery-prev
-          aria-label="이전 이미지"
+          aria-label="<%= isEn ? 'Previous image' : '이전 이미지' %>"
         >
           &#8249;
         </button>
@@ -22,7 +23,7 @@
           type="button"
           class="gallery-nav gallery-next"
           data-gallery-next
-          aria-label="다음 이미지"
+          aria-label="<%= isEn ? 'Next image' : '다음 이미지' %>"
         >
           &#8250;
         </button>
@@ -36,9 +37,9 @@
             data-gallery-thumb
             data-index="<%= index %>"
             data-src="<%= src %>"
-            aria-label="상품 이미지 <%= index + 1 %>"
+            aria-label="<%= isEn ? 'Product image' : '상품 이미지' %> <%= index + 1 %>"
           >
-            <img src="<%= src %>" alt="<%= product.brand %> 썸네일 <%= index + 1 %>" loading="lazy" />
+            <img src="<%= src %>" alt="<%= product.brand %> <%= isEn ? 'thumbnail' : '썸네일' %> <%= index + 1 %>" loading="lazy" />
           </button>
         <% }) %>
       </div>
@@ -60,29 +61,29 @@
       <span>Dial: <strong><%= product.dial_color || '-' %></strong></span>
       <span>Case: <strong><%= product.case_material || '-' %></strong></span>
       <span>Bracelet/Strap: <strong><%= product.strap_material || '-' %></strong></span>
-      <span><%= ctx.lang === 'en' ? 'Shipping' : '배송기간' %>: <strong><%= product.shipping_period || '-' %></strong></span>
+      <span><%= isEn ? 'Shipping' : '배송기간' %>: <strong><%= product.shipping_period || '-' %></strong></span>
     </div>
 
     <p class="feature-copy"><%= product.features || '-' %></p>
 
     <% if (product.category_group === '공장제') { %>
-      <a href="/shop/item/<%= product.id %>/purchase" class="cta-main full"><%= ctx.lang === 'en' ? 'Go to Purchase' : '구매하기' %></a>
+      <a href="/shop/item/<%= product.id %>/purchase" class="cta-main full"><%= isEn ? 'Go to Purchase' : '구매하기' %></a>
     <% } else { %>
       <form method="post" action="/order/create" class="order-form">
         <input type="hidden" name="productId" value="<%= product.id %>" />
-        <label>수량
+        <label><%= isEn ? 'Quantity' : '수량' %>
           <input type="number" name="quantity" value="1" min="1" required />
         </label>
-        <label>이름
+        <label><%= isEn ? 'Name' : '이름' %>
           <input type="text" name="buyerName" required />
         </label>
-        <label>연락처
+        <label><%= isEn ? 'Contact' : '연락처' %>
           <input type="text" name="buyerContact" required />
         </label>
-        <label>주소
+        <label><%= isEn ? 'Address' : '주소' %>
           <textarea name="buyerAddress" rows="2" required></textarea>
         </label>
-        <label>입금자명
+        <label><%= isEn ? 'Depositor Name' : '입금자명' %>
           <input type="text" name="bankDepositorName" required />
         </label>
         <button type="submit" class="cta-main full"><%= ctx.t('buyNow') %></button>
@@ -92,10 +93,10 @@
 </section>
 
 <section class="block-card">
-  <h3><%= ctx.lang === 'en' ? 'Similar Watches' : '유사 상품' %></h3>
+  <h3><%= isEn ? 'Similar Watches' : '유사 상품' %></h3>
   <div class="product-grid compact">
     <% if (similar.length === 0) { %>
-      <p><%= ctx.lang === 'en' ? 'No similar products found.' : '같은 브랜드의 다른 상품이 없습니다.' %></p>
+      <p><%= isEn ? 'No similar products found.' : '같은 브랜드의 다른 상품이 없습니다.' %></p>
     <% } %>
     <% similar.forEach((item) => { %>
       <a href="/shop/item/<%= item.id %>" class="mini-product">

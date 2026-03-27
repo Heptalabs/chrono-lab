@@ -1,22 +1,23 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="block-card">
   <div class="section-head">
     <h2>QC</h2>
     <form method="get" action="/qc" class="inline-search">
-      <input type="text" name="orderNo" value="<%= orderNo %>" placeholder="<%= ctx.lang === 'en' ? 'Order No.' : '예: CL-20260326-AB12CD' %>" />
-      <button type="submit" class="chip dark"><%= ctx.lang === 'en' ? 'Search' : '검색' %></button>
+      <input type="text" name="orderNo" value="<%= orderNo %>" placeholder="<%= isEn ? 'ex: CL-20260326-AB12CD' : '예: CL-20260326-AB12CD' %>" />
+      <button type="submit" class="chip dark"><%= isEn ? 'Search' : '검색' %></button>
     </form>
   </div>
 
   <div class="qc-grid">
     <% if (items.length === 0) { %>
-      <p><%= ctx.lang === 'en' ? 'No QC images found.' : '등록된 QC 이미지가 없습니다.' %></p>
+      <p><%= isEn ? 'No QC images found.' : '등록된 QC 이미지가 없습니다.' %></p>
     <% } %>
     <% items.forEach((item) => { %>
       <article class="qc-card">
         <img src="<%= item.image_path %>" alt="qc image" />
-        <strong><%= ctx.lang === 'en' ? 'Order No.' : '구매번호' %>: <%= item.order_no %></strong>
+        <strong><%= isEn ? 'Order No.' : '구매번호' %>: <%= item.order_no %></strong>
         <p><%= item.note || '-' %></p>
         <small><%= item.created_at.slice(0, 10) %></small>
       </article>

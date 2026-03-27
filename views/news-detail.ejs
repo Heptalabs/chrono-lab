@@ -1,4 +1,5 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="block-card narrow">
   <h2><%= newsPost.title %></h2>
@@ -9,17 +10,17 @@
   <% } %>
 
   <article class="content-article"><%= newsPost.content %></article>
-  <a href="/news" class="chip">뉴스 목록으로</a>
+  <a href="/news" class="chip"><%= isEn ? 'Back to news' : '뉴스 목록으로' %></a>
 </section>
 
 <section class="block-card">
   <div class="section-head">
-    <h3>최근 뉴스</h3>
-    <a href="/news">전체보기</a>
+    <h3><%= isEn ? 'Latest News' : '최근 뉴스' %></h3>
+    <a href="/news"><%= isEn ? 'View all' : '전체보기' %></a>
   </div>
   <ul class="line-list">
     <% if (relatedNews.length === 0) { %>
-      <li>다른 뉴스가 없습니다.</li>
+      <li><%= isEn ? 'No related news.' : '다른 뉴스가 없습니다.' %></li>
     <% } %>
     <% relatedNews.forEach((item) => { %>
       <li>

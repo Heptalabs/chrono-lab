@@ -1,18 +1,19 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="block-card">
   <div class="section-head">
-    <h2>문의</h2>
+    <h2><%= isEn ? 'Inquiry' : '문의' %></h2>
     <% if (ctx.currentUser) { %>
-      <a href="/inquiry/new" class="chip dark">문의 작성</a>
+      <a href="/inquiry/new" class="chip dark"><%= isEn ? 'Write inquiry' : '문의 작성' %></a>
     <% } else { %>
-      <a href="/login" class="chip">로그인 후 작성</a>
+      <a href="/login" class="chip"><%= isEn ? 'Login to write' : '로그인 후 작성' %></a>
     <% } %>
   </div>
 
   <ul class="line-list">
     <% if (inquiries.length === 0) { %>
-      <li>등록된 문의가 없습니다.</li>
+      <li><%= isEn ? 'No inquiries found.' : '등록된 문의가 없습니다.' %></li>
     <% } %>
 
     <% inquiries.forEach((item) => { %>
@@ -21,9 +22,9 @@
         <span>
           <%= item.writer %>
           <% if (item.reply_content) { %>
-            / 답변완료
+            / <%= isEn ? 'Replied' : '답변완료' %>
           <% } else { %>
-            / 답변대기
+            / <%= isEn ? 'Pending' : '답변대기' %>
           <% } %>
         </span>
       </li>

@@ -1,27 +1,28 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="block-card narrow">
   <h2><%= ctx.t('orderComplete') %></h2>
   <p><%= ctx.t('orderNo') %> : <strong><%= order.order_no %></strong></p>
 
   <div class="line-list-box">
-    <p>상품: <strong><%= order.brand %> <%= order.model %> <%= order.sub_model %></strong></p>
-    <p>신청자: <strong><%= order.buyer_name %></strong></p>
-    <p>연락처: <strong><%= order.buyer_contact %></strong></p>
-    <p>통관번호: <strong><%= order.customs_clearance_no || '-' %></strong></p>
-    <p>주소: <strong><%= order.buyer_address %></strong></p>
-    <p>입금자명: <strong><%= order.bank_depositor_name %></strong></p>
-    <p>총 금액: <strong>₩<%= ctx.formatPrice(order.total_price) %></strong></p>
-    <p>주문상태: <strong><%= statusMeta.label %></strong> <%= statusMeta.detail ? `(${statusMeta.detail})` : '' %></p>
+    <p><%= isEn ? 'Product' : '상품' %>: <strong><%= order.brand %> <%= order.model %> <%= order.sub_model %></strong></p>
+    <p><%= isEn ? 'Buyer' : '신청자' %>: <strong><%= order.buyer_name %></strong></p>
+    <p><%= isEn ? 'Contact' : '연락처' %>: <strong><%= order.buyer_contact %></strong></p>
+    <p><%= isEn ? 'Customs No.' : '통관번호' %>: <strong><%= order.customs_clearance_no || '-' %></strong></p>
+    <p><%= isEn ? 'Address' : '주소' %>: <strong><%= order.buyer_address %></strong></p>
+    <p><%= isEn ? 'Depositor Name' : '입금자명' %>: <strong><%= order.bank_depositor_name %></strong></p>
+    <p><%= isEn ? 'Total Amount' : '총 금액' %>: <strong>₩<%= ctx.formatPrice(order.total_price) %></strong></p>
+    <p><%= isEn ? 'Order Status' : '주문상태' %>: <strong><%= statusMeta.label %></strong> <%= statusMeta.detail ? `(${statusMeta.detail})` : '' %></p>
   </div>
 
   <div class="notice-box">
-    <h4>계좌이체 안내</h4>
+    <h4><%= isEn ? 'Bank Transfer Guide' : '계좌이체 안내' %></h4>
     <p><%= ctx.settings.bankAccountInfo %></p>
-    <p>입금 시 주문번호(<%= order.order_no %>)와 입금자명(<%= order.bank_depositor_name %>) 기준으로 확인됩니다.</p>
+    <p><%= isEn ? `Payment is verified by order no. (${order.order_no}) and depositor name (${order.bank_depositor_name}).` : `입금 시 주문번호(${order.order_no})와 입금자명(${order.bank_depositor_name}) 기준으로 확인됩니다.` %></p>
   </div>
 
-  <a href="/shop" class="chip dark">쇼핑몰로 돌아가기</a>
+  <a href="/shop" class="chip dark"><%= isEn ? 'Back to shop' : '쇼핑몰로 돌아가기' %></a>
 </section>
 
 <%- include('partials/layout-end') %>

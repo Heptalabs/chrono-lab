@@ -35,7 +35,7 @@
 
   <% if (group === '공장제' && brand) { %>
     <div class="filter-group">
-      <h4><%= isEn ? 'Model' : '소분류 (모델)' %></h4>
+      <h4><%= isEn ? 'Model' : '모델' %></h4>
       <div class="chip-row">
         <a href="/shop?group=<%= encodeURIComponent(group) %>&brand=<%= encodeURIComponent(brand) %>" class="chip <%= model ? '' : 'dark' %>"><%= isEn ? 'All' : '전체' %></a>
         <% models.forEach((item) => { %>

@@ -1,9 +1,10 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="block-card narrow">
   <h2><%= title %></h2>
   <p><%= message %></p>
-  <a href="/main" class="chip dark">메인으로</a>
+  <a href="/main" class="chip dark"><%= isEn ? 'Back to Main' : '메인으로' %></a>
 </section>
 
 <%- include('partials/layout-end') %>

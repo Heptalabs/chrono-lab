@@ -227,11 +227,12 @@ function getNextOrderStatus(rawStatus) {
   return null;
 }
 
-function getNextOrderActionLabel(rawStatus) {
+function getNextOrderActionLabel(rawStatus, lang = 'ko') {
   const current = normalizeOrderStatus(rawStatus);
-  if (current === ORDER_STATUS.UNPAID) return '입금확인';
-  if (current === ORDER_STATUS.PAID_PREPARING) return '배송시작';
-  if (current === ORDER_STATUS.SHIPPING) return '배송완료';
+  const isEn = lang === 'en';
+  if (current === ORDER_STATUS.UNPAID) return isEn ? 'Confirm Payment' : '입금확인';
+  if (current === ORDER_STATUS.PAID_PREPARING) return isEn ? 'Start Shipping' : '배송시작';
+  if (current === ORDER_STATUS.SHIPPING) return isEn ? 'Mark Delivered' : '배송완료';
   return '';
 }
 
@@ -1285,7 +1286,7 @@ app.get('/admin/logout', requireAdmin, (req, res) => {
   });
 });
 
-function buildAdminDashboardViewData() {
+function buildAdminDashboardViewData(lang = 'ko') {
   const publicMenus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
   const settings = {
     siteName: getSetting('siteName', 'Chrono Lab'),
@@ -1315,9 +1316,9 @@ function buildAdminDashboardViewData() {
     )
     .all()
     .map((order) => {
-      const statusMeta = getOrderStatusMeta(order.status, 'ko');
+      const statusMeta = getOrderStatusMeta(order.status, lang);
       const nextStatus = getNextOrderStatus(order.status);
-      const nextActionLabel = getNextOrderActionLabel(order.status);
+      const nextActionLabel = getNextOrderActionLabel(order.status, lang);
       return {
         ...order,
         status_code: statusMeta.code,
@@ -1357,7 +1358,7 @@ function buildAdminDashboardViewData() {
 }
 
 function renderAdminDashboard(req, res, activeTab) {
-  const viewData = buildAdminDashboardViewData();
+  const viewData = buildAdminDashboardViewData(res.locals.ctx.lang);
   return res.render('admin-dashboard', {
     title: 'Admin Dashboard',
     activeTab,

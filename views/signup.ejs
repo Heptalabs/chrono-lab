@@ -1,28 +1,29 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="auth-wrap">
   <div class="auth-card">
     <h2>Create Account</h2>
     <form method="post" action="/signup" class="form-grid">
-      <label>이메일 (비번 찾기용)
+      <label><%= isEn ? 'Email (for password reset)' : '이메일 (비번 찾기용)' %>
         <input type="email" name="email" required />
       </label>
-      <label>아이디
+      <label><%= isEn ? 'Username' : '아이디' %>
         <input type="text" name="username" required />
       </label>
-      <label>비밀번호
+      <label><%= isEn ? 'Password' : '비밀번호' %>
         <input type="password" name="password" required />
       </label>
-      <label>비밀번호 확인
+      <label><%= isEn ? 'Confirm password' : '비밀번호 확인' %>
         <input type="password" name="passwordConfirm" required />
       </label>
       <label class="check-row">
         <input type="checkbox" name="agreedTerms" />
-        <span>약관에 동의합니다.</span>
+        <span><%= isEn ? 'I agree to the terms.' : '약관에 동의합니다.' %></span>
       </label>
-      <button type="submit" class="cta-main">회원가입</button>
+      <button type="submit" class="cta-main"><%= isEn ? 'Sign up' : '회원가입' %></button>
     </form>
-    <p class="muted-label">이미 계정이 있나요? <a href="/login">로그인</a></p>
+    <p class="muted-label"><%= isEn ? 'Already have an account?' : '이미 계정이 있나요?' %> <a href="/login"><%= isEn ? 'Login' : '로그인' %></a></p>
   </div>
 </section>
 

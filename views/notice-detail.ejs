@@ -1,4 +1,5 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="block-card narrow">
   <h2><%= notice.title %></h2>
@@ -7,7 +8,7 @@
     <img src="<%= notice.image_path %>" alt="notice" class="notice-image" />
   <% } %>
   <article class="content-article"><%= notice.content %></article>
-  <a href="/notice" class="chip">목록으로</a>
+  <a href="/notice" class="chip"><%= isEn ? 'Back to list' : '목록으로' %></a>
 </section>
 
 <%- include('partials/layout-end') %>

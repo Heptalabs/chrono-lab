@@ -1,18 +1,19 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
 
 <section class="block-card">
   <div class="section-head">
-    <h2>구매후기</h2>
+    <h2><%= isEn ? 'Reviews' : '구매후기' %></h2>
     <% if (ctx.currentUser) { %>
-      <a href="/review/new" class="chip dark">후기 작성</a>
+      <a href="/review/new" class="chip dark"><%= isEn ? 'Write review' : '후기 작성' %></a>
     <% } else { %>
-      <a href="/login" class="chip">로그인 후 작성</a>
+      <a href="/login" class="chip"><%= isEn ? 'Login to write' : '로그인 후 작성' %></a>
     <% } %>
   </div>
 
   <div class="review-grid">
     <% if (reviews.length === 0) { %>
-      <p>아직 등록된 후기가 없습니다.</p>
+      <p><%= isEn ? 'No reviews yet.' : '아직 등록된 후기가 없습니다.' %></p>
     <% } %>
 
     <% reviews.forEach((item) => { %>
@@ -23,7 +24,7 @@
         <h3><%= item.title %></h3>
         <p><%= item.content %></p>
         <small>
-          작성자 <%= maskUsername(item.username) %>
+          <%= isEn ? 'Writer' : '작성자' %> <%= maskUsername(item.username) %>
           <% if (item.brand) { %>
             / <%= item.brand %> <%= item.model %> <%= item.sub_model %>
           <% } %>

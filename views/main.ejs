@@ -1,4 +1,12 @@
 <%- include('partials/layout-start') %>
+<%
+  const isEn = ctx.lang === 'en';
+  const groupLabelMap = {
+    '공장제': isEn ? 'Factory' : '공장제',
+    '젠파츠': isEn ? 'Gen Parts' : '젠파츠',
+    '현지중고': isEn ? 'Local Used' : '현지중고'
+  };
+%>
 
 <section class="hero-wrap">
   <div class="hero-image-pane">
@@ -12,30 +20,30 @@
     <h3><%= ctx.t('welcome') %></h3>
     <p><%= ctx.t('orderBankOnly') %></p>
     <div class="hero-quick-grid">
-      <a href="/notice">공지사항</a>
-      <a href="/news">뉴스</a>
-      <a href="/shop">쇼핑몰</a>
+      <a href="/notice"><%= isEn ? 'Notice' : '공지사항' %></a>
+      <a href="/news"><%= isEn ? 'News' : '뉴스' %></a>
+      <a href="/shop"><%= isEn ? 'Shop' : '쇼핑몰' %></a>
       <a href="/qc">QC</a>
-      <a href="/review">구매후기</a>
-      <a href="/inquiry">문의</a>
+      <a href="/review"><%= isEn ? 'Reviews' : '구매후기' %></a>
+      <a href="/inquiry"><%= isEn ? 'Inquiry' : '문의' %></a>
     </div>
   </div>
 </section>
 
 <section class="block-card">
   <div class="section-head">
-    <h2>쇼핑몰</h2>
-    <a href="/shop">더보기</a>
+    <h2><%= isEn ? 'Shop' : '쇼핑몰' %></h2>
+    <a href="/shop"><%= isEn ? 'View more' : '더보기' %></a>
   </div>
   <div class="shop-row-list">
     <% groupedProducts.forEach((group) => { %>
       <div class="shop-row-block">
         <div class="shop-row-head">
-          <h3><%= group.groupName %></h3>
+          <h3><%= groupLabelMap[group.groupName] || group.groupName %></h3>
         </div>
         <div class="product-grid shop-row-grid">
           <% if (group.products.length === 0) { %>
-            <p class="muted-label">등록된 상품이 없습니다.</p>
+            <p class="muted-label"><%= isEn ? 'No products found.' : '등록된 상품이 없습니다.' %></p>
           <% } %>
           <% group.products.forEach((item) => { %>
             <a href="/shop/item/<%= item.id %>" class="product-card">
@@ -50,7 +58,7 @@
                 <strong><%= item.brand %> <%= item.model %></strong>
                 <span><%= item.sub_model %></span>
                 <em>₩<%= ctx.formatPrice(item.price) %></em>
-                <small>배송기간: <%= item.shipping_period || '-' %></small>
+                <small><%= isEn ? 'Shipping' : '배송기간' %>: <%= item.shipping_period || '-' %></small>
               </div>
             </a>
           <% }) %>
@@ -62,12 +70,12 @@
 
 <section class="block-card">
   <div class="section-head">
-    <h2>뉴스</h2>
-    <a href="/news">전체보기</a>
+    <h2><%= isEn ? 'News' : '뉴스' %></h2>
+    <a href="/news"><%= isEn ? 'View all' : '전체보기' %></a>
   </div>
   <div class="news-card-grid">
     <% if (latestNews.length === 0) { %>
-      <p>아직 등록된 뉴스가 없습니다.</p>
+      <p><%= isEn ? 'No news yet.' : '아직 등록된 뉴스가 없습니다.' %></p>
     <% } %>
     <% latestNews.forEach((item) => { %>
       <a href="/news/<%= item.id %>" class="news-card">
@@ -86,12 +94,12 @@
 
 <section class="block-card">
   <div class="section-head">
-    <h2>공지사항</h2>
-    <a href="/notice">전체보기</a>
+    <h2><%= isEn ? 'Notice' : '공지사항' %></h2>
+    <a href="/notice"><%= isEn ? 'View all' : '전체보기' %></a>
   </div>
   <ul class="line-list">
     <% if (latestNotices.length === 0) { %>
-      <li>아직 등록된 공지사항이 없습니다.</li>
+      <li><%= isEn ? 'No notices yet.' : '아직 등록된 공지사항이 없습니다.' %></li>
     <% } %>
     <% latestNotices.forEach((item) => { %>
       <li>
