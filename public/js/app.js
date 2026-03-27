@@ -55,6 +55,7 @@
 
     galleries.forEach(function (gallery) {
       var mainImage = gallery.querySelector('[data-gallery-main]');
+      var mainWrap = gallery.querySelector('.detail-main-wrap');
       var thumbs = Array.prototype.slice.call(gallery.querySelectorAll('[data-gallery-thumb]'));
       var prevButton = gallery.querySelector('[data-gallery-prev]');
       var nextButton = gallery.querySelector('[data-gallery-next]');
@@ -64,6 +65,22 @@
       }
 
       var currentIndex = 0;
+
+      function syncImageMode() {
+        if (!mainWrap || !mainImage) {
+          return;
+        }
+
+        var naturalWidth = Number(mainImage.naturalWidth || 0);
+        var naturalHeight = Number(mainImage.naturalHeight || 0);
+        if (!naturalWidth || !naturalHeight) {
+          mainWrap.classList.remove('gallery-fill');
+          return;
+        }
+
+        var ratio = naturalWidth / naturalHeight;
+        mainWrap.classList.toggle('gallery-fill', ratio >= 1.3);
+      }
 
       function update(index) {
         if (index < 0 || index >= thumbs.length) {
@@ -79,6 +96,10 @@
         thumbs.forEach(function (thumb, thumbIndex) {
           thumb.classList.toggle('active', thumbIndex === currentIndex);
         });
+
+        if (mainImage.complete) {
+          syncImageMode();
+        }
       }
 
       thumbs.forEach(function (thumb, index) {
@@ -105,6 +126,9 @@
         if (prevButton) prevButton.setAttribute('hidden', 'hidden');
         if (nextButton) nextButton.setAttribute('hidden', 'hidden');
       }
+
+      mainImage.addEventListener('load', syncImageMode);
+      syncImageMode();
     });
   }
 
