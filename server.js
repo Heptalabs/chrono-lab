@@ -1693,6 +1693,7 @@ function buildAdminDashboardStats() {
       total: Number(usersRow?.total_count || 0)
     },
     memberVisits: getVisitRangeSummary(today, 'member_visit_count'),
+    guestVisits: getVisitRangeSummary(today, 'guest_visit_count'),
     totalVisits: getVisitRangeSummary(today, 'visit_count'),
     boardCounts: {
       notice: Number(boardRow?.notice_count || 0),

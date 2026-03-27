@@ -1167,6 +1167,18 @@ body.theme-night .detail-card-dark .cta-main:hover {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.admin-dash-columns {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.admin-dash-stack {
+  display: grid;
+  gap: 10px;
+}
+
 .kpi-card {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -1198,6 +1210,38 @@ body.theme-night .detail-card-dark .cta-main:hover {
   justify-content: space-between;
   gap: 8px;
   font-size: 0.84rem;
+}
+
+.kpi-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kpi-toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kpi-toggle-btn {
+  border: 1px solid var(--line);
+  background: var(--chip);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kpi-toggle-btn.active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
 }
 
 .shop-split-grid {
@@ -1395,6 +1439,10 @@ td {
   }
 
   .admin-kpi-grid.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-dash-columns {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

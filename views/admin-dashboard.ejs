@@ -11,6 +11,7 @@
   const stats = dashboardStats || {
     users: { members: 0, admins: 0, total: 0 },
     memberVisits: { today: 0, week: 0, month: 0, year: 0, total: 0 },
+    guestVisits: { today: 0, week: 0, month: 0, year: 0, total: 0 },
     totalVisits: { today: 0, week: 0, month: 0, year: 0, total: 0 },
     boardCounts: { notice: 0, news: 0, qc: 0, review: 0, inquiry: 0 },
     shopCounts: { total: 0, active: 0, byGroup: [] },
@@ -24,40 +25,51 @@
   <article class="block-card">
     <h3><%= isEn ? 'Admin Dashboard' : '관리자 대시보드' %></h3>
 
-    <div class="admin-kpi-grid two-col">
-      <div class="kpi-card">
-        <h4><%= isEn ? 'Members' : '회원 수' %></h4>
-        <strong><%= stats.users.members %></strong>
-        <p class="muted-label"><%= isEn ? `Admins ${stats.users.admins} / Total ${stats.users.total}` : `어드민 ${stats.users.admins} / 전체 계정 ${stats.users.total}` %></p>
-      </div>
-      <div class="kpi-card">
-        <h4><%= isEn ? 'Orders Total' : '총 주문건' %></h4>
-        <strong><%= stats.orderCounts.total %></strong>
-        <p class="muted-label"><%= isEn ? 'Order pipeline summary below.' : '주문 상태 파이프라인은 아래에서 확인하세요.' %></p>
-      </div>
-    </div>
+    <div class="admin-dash-columns">
+      <div class="admin-dash-stack">
+        <div class="kpi-card">
+          <h4><%= isEn ? 'Members' : '회원 수' %></h4>
+          <strong><%= stats.users.members %></strong>
+          <p class="muted-label"><%= isEn ? `Admins ${stats.users.admins} / Total ${stats.users.total}` : `어드민 ${stats.users.admins} / 전체 계정 ${stats.users.total}` %></p>
+        </div>
 
-    <div class="admin-kpi-grid two-col">
-      <div class="kpi-card">
-        <h4><%= isEn ? 'Member Visits' : '회원 방문 집계' %></h4>
-        <ul class="metric-list">
-          <li><span><%= isEn ? 'Today' : '오늘' %></span><strong><%= stats.memberVisits.today %></strong></li>
-          <li><span><%= isEn ? '7 Days' : '일주일' %></span><strong><%= stats.memberVisits.week %></strong></li>
-          <li><span><%= isEn ? '30 Days' : '한달' %></span><strong><%= stats.memberVisits.month %></strong></li>
-          <li><span><%= isEn ? '1 Year' : '1년' %></span><strong><%= stats.memberVisits.year %></strong></li>
-          <li><span><%= isEn ? 'Total' : '총' %></span><strong><%= stats.memberVisits.total %></strong></li>
-        </ul>
+        <div class="kpi-card" data-visit-switch-root>
+          <div class="kpi-head-row">
+            <h4><%= isEn ? 'Visit Summary' : '방문 집계' %></h4>
+            <div class="kpi-toggle-row" role="tablist" aria-label="<%= isEn ? 'visit segment switch' : '방문 구분 전환' %>">
+              <button type="button" class="kpi-toggle-btn active" data-visit-type="member"><%= isEn ? 'Member' : '회원' %></button>
+              <button type="button" class="kpi-toggle-btn" data-visit-type="guest"><%= isEn ? 'Guest' : '비회원' %></button>
+              <button type="button" class="kpi-toggle-btn" data-visit-type="total"><%= isEn ? 'Total' : '전체' %></button>
+            </div>
+          </div>
+          <p class="muted-label" data-visit-caption><%= isEn ? 'Member visits summary.' : '회원 방문 기준 집계입니다.' %></p>
+          <ul class="metric-list">
+            <li><span><%= isEn ? 'Today' : '오늘' %></span><strong data-visit-value="today"><%= stats.memberVisits.today %></strong></li>
+            <li><span><%= isEn ? '7 Days' : '일주일' %></span><strong data-visit-value="week"><%= stats.memberVisits.week %></strong></li>
+            <li><span><%= isEn ? '30 Days' : '한달' %></span><strong data-visit-value="month"><%= stats.memberVisits.month %></strong></li>
+            <li><span><%= isEn ? '1 Year' : '1년' %></span><strong data-visit-value="year"><%= stats.memberVisits.year %></strong></li>
+            <li><span><%= isEn ? 'Total' : '총' %></span><strong data-visit-value="total"><%= stats.memberVisits.total %></strong></li>
+          </ul>
+        </div>
       </div>
 
-      <div class="kpi-card">
-        <h4><%= isEn ? 'Total Visits (All)' : '총 방문자 집계(회원+비회원)' %></h4>
-        <ul class="metric-list">
-          <li><span><%= isEn ? 'Today' : '오늘' %></span><strong><%= stats.totalVisits.today %></strong></li>
-          <li><span><%= isEn ? '7 Days' : '일주일' %></span><strong><%= stats.totalVisits.week %></strong></li>
-          <li><span><%= isEn ? '30 Days' : '한달' %></span><strong><%= stats.totalVisits.month %></strong></li>
-          <li><span><%= isEn ? '1 Year' : '1년' %></span><strong><%= stats.totalVisits.year %></strong></li>
-          <li><span><%= isEn ? 'Total' : '총' %></span><strong><%= stats.totalVisits.total %></strong></li>
-        </ul>
+      <div class="admin-dash-stack">
+        <div class="kpi-card">
+          <h4><%= isEn ? 'Orders Total' : '총 주문건' %></h4>
+          <strong><%= stats.orderCounts.total %></strong>
+          <p class="muted-label"><%= isEn ? 'Order pipeline summary below.' : '주문 상태 파이프라인은 아래에서 확인하세요.' %></p>
+        </div>
+
+        <div class="kpi-card">
+          <h4><%= isEn ? 'Order Status Summary' : '주문 상태 집계' %></h4>
+          <ul class="metric-list">
+            <li><span><%= isEn ? 'Unchecked' : '미확인 주문건' %></span><strong><%= stats.orderCounts.pendingReview %></strong></li>
+            <li><span><%= isEn ? 'Confirmed' : '확인 주문건' %></span><strong><%= stats.orderCounts.confirmed %></strong></li>
+            <li><span><%= isEn ? 'Preparing Shipment' : '출고중 주문건' %></span><strong><%= stats.orderCounts.readyToShip %></strong></li>
+            <li><span><%= isEn ? 'Shipping' : '배송중 주문건' %></span><strong><%= stats.orderCounts.shipping %></strong></li>
+            <li><span><%= isEn ? 'Delivered' : '배송완료 주문건' %></span><strong><%= stats.orderCounts.delivered %></strong></li>
+          </ul>
+        </div>
       </div>
     </div>
 
@@ -74,23 +86,12 @@
       </div>
 
       <div class="kpi-card">
-        <h4><%= isEn ? 'Order Status Summary' : '주문 상태 집계' %></h4>
+        <h4><%= isEn ? 'Operational Alerts' : '운영 알림' %></h4>
         <ul class="metric-list">
-          <li><span><%= isEn ? 'Unchecked' : '미확인 주문건' %></span><strong><%= stats.orderCounts.pendingReview %></strong></li>
-          <li><span><%= isEn ? 'Confirmed' : '확인 주문건' %></span><strong><%= stats.orderCounts.confirmed %></strong></li>
-          <li><span><%= isEn ? 'Preparing Shipment' : '출고중 주문건' %></span><strong><%= stats.orderCounts.readyToShip %></strong></li>
-          <li><span><%= isEn ? 'Shipping' : '배송중 주문건' %></span><strong><%= stats.orderCounts.shipping %></strong></li>
-          <li><span><%= isEn ? 'Delivered' : '배송완료 주문건' %></span><strong><%= stats.orderCounts.delivered %></strong></li>
+          <li><span><%= isEn ? 'Unchecked 24h+' : '24시간 이상 미확인' %></span><strong><%= stats.orderAlerts.stalePending %></strong></li>
+          <li><span><%= isEn ? 'Shipping 7d+' : '7일 이상 배송중' %></span><strong><%= stats.orderAlerts.longShipping %></strong></li>
         </ul>
       </div>
-    </div>
-
-    <div class="kpi-card">
-      <h4><%= isEn ? 'Operational Alerts' : '운영 알림' %></h4>
-      <ul class="metric-list">
-        <li><span><%= isEn ? 'Unchecked 24h+' : '24시간 이상 미확인' %></span><strong><%= stats.orderAlerts.stalePending %></strong></li>
-        <li><span><%= isEn ? 'Shipping 7d+' : '7일 이상 배송중' %></span><strong><%= stats.orderAlerts.longShipping %></strong></li>
-      </ul>
     </div>
 
     <div class="kpi-card">
@@ -106,6 +107,63 @@
         <% }) %>
       </div>
     </div>
+
+    <script id="visit-kpi-payload" type="application/json"><%- JSON.stringify({
+      member: stats.memberVisits,
+      guest: stats.guestVisits,
+      total: stats.totalVisits
+    }) %></script>
+    <script>
+      (() => {
+        const root = document.querySelector('[data-visit-switch-root]');
+        const payloadNode = document.getElementById('visit-kpi-payload');
+        if (!root || !payloadNode) return;
+
+        let dataset = {};
+        try {
+          dataset = JSON.parse(payloadNode.textContent || '{}');
+        } catch {
+          dataset = {};
+        }
+
+        const labelMap = {
+          member: <%- JSON.stringify(isEn ? 'Member visits summary.' : '회원 방문 기준 집계입니다.') %>,
+          guest: <%- JSON.stringify(isEn ? 'Guest visits summary.' : '비회원 방문 기준 집계입니다.') %>,
+          total: <%- JSON.stringify(isEn ? 'All visits summary.' : '회원+비회원 전체 방문 집계입니다.') %>
+        };
+
+        const fields = ['today', 'week', 'month', 'year', 'total'];
+        const buttons = Array.from(root.querySelectorAll('[data-visit-type]'));
+        const captionNode = root.querySelector('[data-visit-caption]');
+        const valueNodes = fields.reduce((acc, field) => {
+          acc[field] = root.querySelector(`[data-visit-value="${field}"]`);
+          return acc;
+        }, {});
+
+        const applyType = (type) => {
+          const target = dataset[type] || dataset.member || { today: 0, week: 0, month: 0, year: 0, total: 0 };
+          fields.forEach((field) => {
+            if (valueNodes[field]) {
+              valueNodes[field].textContent = Number(target[field] || 0).toLocaleString();
+            }
+          });
+          if (captionNode) {
+            captionNode.textContent = labelMap[type] || labelMap.member;
+          }
+          buttons.forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.visitType === type);
+          });
+        };
+
+        buttons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            applyType(btn.dataset.visitType || 'member');
+          });
+        });
+
+        applyType('member');
+      })();
+    </script>
   </article>
   <% } %>
 
