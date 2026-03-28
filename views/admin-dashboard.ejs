@@ -214,7 +214,7 @@
       <div class="security-subnav">
         <a href="/admin/security?section=profile" class="menu-pill <%= securityTab === 'profile' ? 'active' : '' %>"><%= isEn ? 'Primary Account' : '메인관리자 계정' %></a>
         <a href="/admin/security?section=admins" class="menu-pill <%= securityTab === 'admins' ? 'active' : '' %>"><%= isEn ? 'Sub Admins' : '서브관리자 관리' %></a>
-        <a href="/admin/security?section=logs" class="menu-pill <%= securityTab === 'logs' ? 'active' : '' %>"><%= isEn ? 'Sub Admin Logs' : '서브관리자 로그' %></a>
+        <a href="/admin/security?section=logs" class="menu-pill <%= securityTab === 'logs' ? 'active' : '' %>"><%= isEn ? 'Admin Logs' : '관리자 로그' %></a>
         <a href="/admin/security?section=alerts" class="menu-pill <%= securityTab === 'alerts' ? 'active' : '' %>"><%= isEn ? 'Anomaly Alerts' : '이상행동 알림' %></a>
       </div>
 
@@ -404,8 +404,10 @@
               <span><%= isEn ? 'To' : '종료일' %></span>
               <input type="date" name="logTo" value="<%= logFilters.to || '' %>" />
             </label>
-            <button type="submit" class="chip dark"><%= isEn ? 'Filter' : '조회' %></button>
-            <a href="/admin/security?section=logs" class="chip"><%= isEn ? 'Reset' : '초기화' %></a>
+            <div class="admin-filter-actions">
+              <button type="submit" class="chip dark"><%= isEn ? 'Filter' : '조회' %></button>
+              <a href="/admin/security?section=logs" class="chip"><%= isEn ? 'Reset' : '초기화' %></a>
+            </div>
           </form>
           <p class="muted-label"><%= isEn ? `Total ${logPager.totalCount} records · Page ${logPager.page}/${logPager.totalPages}` : `총 ${logPager.totalCount}건 · ${logPager.page}/${logPager.totalPages} 페이지` %></p>
           <div class="table-wrap">
@@ -483,8 +485,10 @@
               <span><%= isEn ? 'To' : '종료일' %></span>
               <input type="date" name="alertTo" value="<%= alertFilters.to || '' %>" />
             </label>
-            <button type="submit" class="chip dark"><%= isEn ? 'Filter' : '조회' %></button>
-            <a href="/admin/security?section=alerts" class="chip"><%= isEn ? 'Reset' : '초기화' %></a>
+            <div class="admin-filter-actions">
+              <button type="submit" class="chip dark"><%= isEn ? 'Filter' : '조회' %></button>
+              <a href="/admin/security?section=alerts" class="chip"><%= isEn ? 'Reset' : '초기화' %></a>
+            </div>
           </form>
           <p class="muted-label"><%= isEn ? `Unresolved alerts: ${security.unresolvedAlertsCount}` : `미확인 알림: ${security.unresolvedAlertsCount}` %></p>
           <p class="muted-label"><%= isEn ? `Total ${alertPager.totalCount} records · Page ${alertPager.page}/${alertPager.totalPages}` : `총 ${alertPager.totalCount}건 · ${alertPager.page}/${alertPager.totalPages} 페이지` %></p>

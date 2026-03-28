@@ -176,8 +176,11 @@ function parseMenus(rawMenus) {
   }
 }
 
-function getAdminMenus() {
-  return ADMIN_MENUS.map((menu) => ({ ...menu }));
+function getAdminMenus(currentUser = null) {
+  const isPrimaryAdmin = Boolean(currentUser?.isPrimaryAdmin);
+  return ADMIN_MENUS
+    .filter((menu) => (menu.id === 'admin-security' ? isPrimaryAdmin : true))
+    .map((menu) => ({ ...menu }));
 }
 
 function setFlash(req, type, message) {
@@ -806,7 +809,7 @@ app.use((req, res, next) => {
 
   const publicMenus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
   const isAdminPage = req.path.startsWith('/admin') && req.path !== '/admin/login';
-  const menus = isAdminPage && Boolean(req.user?.isAdmin) ? getAdminMenus() : publicMenus;
+  const menus = isAdminPage && Boolean(req.user?.isAdmin) ? getAdminMenus(req.user) : publicMenus;
 
   const headerColor = getSetting('headerColor', '#111827');
   const backgroundType = getSetting('backgroundType', 'color');
