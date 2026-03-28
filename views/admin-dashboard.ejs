@@ -27,13 +27,13 @@
 
     <div class="admin-dash-columns">
       <div class="admin-dash-stack">
-        <div class="kpi-card">
+        <div class="kpi-card" data-dash-pair="top">
           <h4><%= isEn ? 'Members' : '회원 수' %></h4>
           <strong><%= stats.users.members %></strong>
           <p class="muted-label"><%= isEn ? `Admins ${stats.users.admins} / Total ${stats.users.total}` : `어드민 ${stats.users.admins} / 전체 계정 ${stats.users.total}` %></p>
         </div>
 
-        <div class="kpi-card" data-visit-switch-root>
+        <div class="kpi-card" data-dash-pair="bottom" data-visit-switch-root>
           <div class="kpi-head-row">
             <h4><%= isEn ? 'Visit Summary' : '방문 집계' %></h4>
             <div class="kpi-toggle-row" role="tablist" aria-label="<%= isEn ? 'visit segment switch' : '방문 구분 전환' %>">
@@ -54,13 +54,13 @@
       </div>
 
       <div class="admin-dash-stack">
-        <div class="kpi-card">
+        <div class="kpi-card" data-dash-pair="top">
           <h4><%= isEn ? 'Orders Total' : '총 주문건' %></h4>
           <strong><%= stats.orderCounts.total %></strong>
           <p class="muted-label"><%= isEn ? 'Order pipeline summary below.' : '주문 상태 파이프라인은 아래에서 확인하세요.' %></p>
         </div>
 
-        <div class="kpi-card">
+        <div class="kpi-card" data-dash-pair="bottom">
           <h4><%= isEn ? 'Order Status Summary' : '주문 상태 집계' %></h4>
           <ul class="metric-list">
             <li><span><%= isEn ? 'Unchecked' : '미확인 주문건' %></span><strong><%= stats.orderCounts.pendingReview %></strong></li>
@@ -158,10 +158,31 @@
         buttons.forEach((btn) => {
           btn.addEventListener('click', () => {
             applyType(btn.dataset.visitType || 'member');
+            syncPairHeights();
           });
         });
 
         applyType('member');
+
+        const syncPairHeights = () => {
+          const groups = ['top', 'bottom'];
+          groups.forEach((groupName) => {
+            const cards = Array.from(document.querySelectorAll(`[data-dash-pair="${groupName}"]`));
+            cards.forEach((card) => {
+              card.style.minHeight = '';
+            });
+            if (window.innerWidth < 980 || cards.length < 2) {
+              return;
+            }
+            const maxHeight = Math.max(...cards.map((card) => card.offsetHeight));
+            cards.forEach((card) => {
+              card.style.minHeight = `${maxHeight}px`;
+            });
+          });
+        };
+
+        syncPairHeights();
+        window.addEventListener('resize', syncPairHeights);
       })();
     </script>
   </article>
