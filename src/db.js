@@ -45,6 +45,16 @@ const defaultSettings = {
   nightCardDarkColor: '#f1f3f7',
   nightCardDarkTextColor: '#111213',
   nightChipColor: '#f3f4f6',
+  dayBackgroundType: 'color',
+  dayBackgroundImagePath: '',
+  nightBackgroundType: 'color',
+  nightBackgroundImagePath: '',
+  dayHeaderLogoPath: '',
+  nightHeaderLogoPath: '',
+  dayHeaderSymbolPath: '',
+  nightHeaderSymbolPath: '',
+  dayFooterLogoPath: '',
+  nightFooterLogoPath: '',
   headerLogoPath: '',
   headerSymbolPath: '',
   footerLogoPath: '',
@@ -57,6 +67,8 @@ const defaultSettings = {
   languageDefault: 'ko'
 };
 
+const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
+
 function upsertDefaultSetting(key, value) {
   db.prepare('INSERT OR IGNORE INTO site_settings (setting_key, setting_value) VALUES (?, ?)').run(
     key,
@@ -66,6 +78,74 @@ function upsertDefaultSetting(key, value) {
 
 function upsertMetric(key, value = 0) {
   db.prepare('INSERT OR IGNORE INTO metrics (metric_key, metric_value) VALUES (?, ?)').run(key, value);
+}
+
+function migrateLegacyThemeAssetSettings() {
+  const legacyHeaderLogoPath = String(getSetting('headerLogoPath', '') || '').trim();
+  const legacyHeaderSymbolPath = String(getSetting('headerSymbolPath', '') || '').trim();
+  const legacyFooterLogoPath = String(getSetting('footerLogoPath', '') || '').trim();
+  const legacyBackgroundType = String(getSetting('backgroundType', 'color') || 'color').trim() === 'image'
+    ? 'image'
+    : 'color';
+  const legacyBackgroundValue = String(getSetting('backgroundValue', '') || '').trim();
+  const legacyBackgroundImagePath =
+    legacyBackgroundType === 'image' &&
+    legacyBackgroundValue &&
+    !HEX_COLOR_REGEX.test(legacyBackgroundValue)
+      ? legacyBackgroundValue
+      : '';
+
+  const dayHeaderLogoPath = String(getSetting('dayHeaderLogoPath', '') || '').trim();
+  const dayHeaderSymbolPath = String(getSetting('dayHeaderSymbolPath', '') || '').trim();
+  const dayFooterLogoPath = String(getSetting('dayFooterLogoPath', '') || '').trim();
+  let dayBackgroundType = String(getSetting('dayBackgroundType', '') || '').trim();
+  const dayBackgroundImagePath = String(getSetting('dayBackgroundImagePath', '') || '').trim();
+
+  if (!dayHeaderLogoPath && legacyHeaderLogoPath) setSetting('dayHeaderLogoPath', legacyHeaderLogoPath);
+  if (!dayHeaderSymbolPath && legacyHeaderSymbolPath) setSetting('dayHeaderSymbolPath', legacyHeaderSymbolPath);
+  if (!dayFooterLogoPath && legacyFooterLogoPath) setSetting('dayFooterLogoPath', legacyFooterLogoPath);
+
+  if (dayBackgroundType !== 'color' && dayBackgroundType !== 'image') {
+    dayBackgroundType = legacyBackgroundType;
+    setSetting('dayBackgroundType', dayBackgroundType);
+  }
+  if (!dayBackgroundImagePath && legacyBackgroundImagePath) {
+    setSetting('dayBackgroundImagePath', legacyBackgroundImagePath);
+    if (dayBackgroundType !== 'image') {
+      dayBackgroundType = 'image';
+      setSetting('dayBackgroundType', 'image');
+    }
+  }
+
+  const resolvedDayHeaderLogoPath = String(getSetting('dayHeaderLogoPath', legacyHeaderLogoPath) || '').trim();
+  const resolvedDayHeaderSymbolPath = String(getSetting('dayHeaderSymbolPath', legacyHeaderSymbolPath) || '').trim();
+  const resolvedDayFooterLogoPath = String(getSetting('dayFooterLogoPath', legacyFooterLogoPath) || '').trim();
+  const resolvedDayBackgroundType = String(getSetting('dayBackgroundType', dayBackgroundType || 'color') || 'color').trim() === 'image'
+    ? 'image'
+    : 'color';
+  const resolvedDayBackgroundImagePath = String(getSetting('dayBackgroundImagePath', dayBackgroundImagePath || '') || '').trim();
+
+  if (!String(getSetting('nightHeaderLogoPath', '') || '').trim() && resolvedDayHeaderLogoPath) {
+    setSetting('nightHeaderLogoPath', resolvedDayHeaderLogoPath);
+  }
+  if (!String(getSetting('nightHeaderSymbolPath', '') || '').trim() && resolvedDayHeaderSymbolPath) {
+    setSetting('nightHeaderSymbolPath', resolvedDayHeaderSymbolPath);
+  }
+  if (!String(getSetting('nightFooterLogoPath', '') || '').trim() && resolvedDayFooterLogoPath) {
+    setSetting('nightFooterLogoPath', resolvedDayFooterLogoPath);
+  }
+
+  const nightBackgroundTypeRaw = String(getSetting('nightBackgroundType', '') || '').trim();
+  const nightBackgroundImagePath = String(getSetting('nightBackgroundImagePath', '') || '').trim();
+  if (nightBackgroundTypeRaw !== 'color' && nightBackgroundTypeRaw !== 'image') {
+    setSetting('nightBackgroundType', resolvedDayBackgroundType);
+  }
+  if (!nightBackgroundImagePath && resolvedDayBackgroundImagePath) {
+    setSetting('nightBackgroundImagePath', resolvedDayBackgroundImagePath);
+    if (legacyBackgroundType === 'image' && nightBackgroundTypeRaw === 'color') {
+      setSetting('nightBackgroundType', 'image');
+    }
+  }
 }
 
 function normalizePath(pathValue = '') {
@@ -944,6 +1024,8 @@ export function initDb() {
   for (const [key, value] of Object.entries(defaultSettings)) {
     upsertDefaultSetting(key, value);
   }
+
+  migrateLegacyThemeAssetSettings();
 
   const menuRow = db
     .prepare('SELECT setting_value FROM site_settings WHERE setting_key = ? LIMIT 1')

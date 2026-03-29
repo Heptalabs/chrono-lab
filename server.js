@@ -443,6 +443,60 @@ function getThemeColorConfig(themeMode = 'day') {
   };
 }
 
+function getThemeAssetConfig(themeMode = 'day') {
+  const key = themeMode === 'night' ? 'night' : 'day';
+  const legacyHeaderLogoPath = String(getSetting('headerLogoPath', '') || '').trim();
+  const legacyHeaderSymbolPath = String(getSetting('headerSymbolPath', '') || '').trim();
+  const legacyFooterLogoPath = String(getSetting('footerLogoPath', '') || '').trim();
+  const legacyBackgroundType = String(getSetting('backgroundType', 'color') || 'color').trim();
+  const legacyBackgroundValue = String(getSetting('backgroundValue', '') || '').trim();
+  const dayHeaderLogoPath = String(
+    getSetting('dayHeaderLogoPath', legacyHeaderLogoPath) || ''
+  ).trim();
+  const dayHeaderSymbolPath = String(
+    getSetting('dayHeaderSymbolPath', legacyHeaderSymbolPath) || ''
+  ).trim();
+  const dayFooterLogoPath = String(
+    getSetting('dayFooterLogoPath', legacyFooterLogoPath) || ''
+  ).trim();
+  const dayBackgroundType = String(
+    getSetting('dayBackgroundType', legacyBackgroundType === 'image' ? 'image' : 'color') || 'color'
+  ).trim();
+  const dayBackgroundImagePath = String(
+    getSetting(
+      'dayBackgroundImagePath',
+      legacyBackgroundType === 'image' && legacyBackgroundValue && !HEX_COLOR_REGEX.test(legacyBackgroundValue)
+        ? legacyBackgroundValue
+        : ''
+    ) || ''
+  ).trim();
+
+  const normalizeType = (rawType = 'color') => (String(rawType).trim() === 'image' ? 'image' : 'color');
+  const backgroundType = normalizeType(
+    getSetting(`${key}BackgroundType`, key === 'day' ? dayBackgroundType : dayBackgroundType)
+  );
+  const backgroundImagePath = String(
+    getSetting(
+      `${key}BackgroundImagePath`,
+      key === 'day' ? dayBackgroundImagePath : dayBackgroundImagePath
+    ) || ''
+  ).trim();
+
+  return {
+    headerLogoPath: String(
+      getSetting(`${key}HeaderLogoPath`, key === 'day' ? dayHeaderLogoPath : dayHeaderLogoPath) || ''
+    ).trim(),
+    headerSymbolPath: String(
+      getSetting(`${key}HeaderSymbolPath`, key === 'day' ? dayHeaderSymbolPath : dayHeaderSymbolPath) || ''
+    ).trim(),
+    footerLogoPath: String(
+      getSetting(`${key}FooterLogoPath`, key === 'day' ? dayFooterLogoPath : dayFooterLogoPath) || ''
+    ).trim(),
+    backgroundType,
+    backgroundImagePath: backgroundType === 'image' ? backgroundImagePath : ''
+  };
+}
+
 function buildThemeCssVars(colorConfig = {}) {
   return [
     `--bg:${colorConfig.backgroundColor || DEFAULT_THEME_COLORS.day.backgroundColor}`,
@@ -969,20 +1023,23 @@ app.use((req, res, next) => {
 
   const dayThemeColors = getThemeColorConfig('day');
   const nightThemeColors = getThemeColorConfig('night');
+  const dayThemeAssets = getThemeAssetConfig('day');
+  const nightThemeAssets = getThemeAssetConfig('night');
   const activeThemeColors = themeMode === 'night' ? nightThemeColors : dayThemeColors;
+  const activeThemeAssets = themeMode === 'night' ? nightThemeAssets : dayThemeAssets;
 
   const headerColor = activeThemeColors.headerColor;
-  const backgroundType = getSetting('backgroundType', 'color');
-  const backgroundValue = getSetting('backgroundValue', activeThemeColors.backgroundColor);
+  const backgroundType = activeThemeAssets.backgroundType;
+  const backgroundValue =
+    activeThemeAssets.backgroundType === 'image' && activeThemeAssets.backgroundImagePath
+      ? activeThemeAssets.backgroundImagePath
+      : activeThemeColors.backgroundColor;
   const themeCssVars = buildThemeCssVars(activeThemeColors);
-  const hasBackgroundImage =
-    backgroundType === 'image' &&
-    Boolean(backgroundValue) &&
-    !HEX_COLOR_REGEX.test(String(backgroundValue).trim());
+  const hasBackgroundImage = backgroundType === 'image' && Boolean(activeThemeAssets.backgroundImagePath);
 
   let backgroundStyle = `background: ${activeThemeColors.backgroundColor} !important;`;
   if (hasBackgroundImage) {
-    backgroundStyle = `background-color: ${activeThemeColors.backgroundColor} !important; background-image: url('${backgroundValue}') !important; background-size: cover !important; background-position: center !important;`;
+    backgroundStyle = `background-color: ${activeThemeColors.backgroundColor} !important; background-image: url('${activeThemeAssets.backgroundImagePath}') !important; background-size: cover !important; background-position: center !important;`;
   }
 
   const popupNotice = db
@@ -1010,15 +1067,17 @@ app.use((req, res, next) => {
     settings: {
       siteName: getSetting('siteName', 'Chrono Lab'),
       headerColor,
-      headerLogoPath: getSetting('headerLogoPath', ''),
-      headerSymbolPath: getSetting('headerSymbolPath', ''),
-      footerLogoPath: getSetting('footerLogoPath', ''),
+      headerLogoPath: activeThemeAssets.headerLogoPath,
+      headerSymbolPath: activeThemeAssets.headerSymbolPath,
+      footerLogoPath: activeThemeAssets.footerLogoPath,
       backgroundType,
       backgroundValue,
       backgroundStyle,
       themeCssVars,
       dayThemeColors,
       nightThemeColors,
+      dayThemeAssets,
+      nightThemeAssets,
       bankAccountInfo: getSetting('bankAccountInfo', ''),
       contactInfo: getSetting('contactInfo', ''),
       businessInfo: getSetting('businessInfo', '')
@@ -2893,16 +2952,23 @@ function buildAdminDashboardViewData(lang = 'ko', options = {}) {
   const publicMenus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
   const dayThemeColors = getThemeColorConfig('day');
   const nightThemeColors = getThemeColorConfig('night');
+  const dayThemeAssets = getThemeAssetConfig('day');
+  const nightThemeAssets = getThemeAssetConfig('night');
   const settings = {
     siteName: getSetting('siteName', 'Chrono Lab'),
     headerColor: dayThemeColors.headerColor,
-    headerLogoPath: getSetting('headerLogoPath', ''),
-    headerSymbolPath: getSetting('headerSymbolPath', ''),
-    footerLogoPath: getSetting('footerLogoPath', ''),
-    backgroundType: getSetting('backgroundType', 'color'),
-    backgroundValue: getSetting('backgroundValue', dayThemeColors.backgroundColor),
+    headerLogoPath: dayThemeAssets.headerLogoPath,
+    headerSymbolPath: dayThemeAssets.headerSymbolPath,
+    footerLogoPath: dayThemeAssets.footerLogoPath,
+    backgroundType: dayThemeAssets.backgroundType,
+    backgroundValue:
+      dayThemeAssets.backgroundType === 'image' && dayThemeAssets.backgroundImagePath
+        ? dayThemeAssets.backgroundImagePath
+        : dayThemeColors.backgroundColor,
     dayThemeColors,
     nightThemeColors,
+    dayThemeAssets,
+    nightThemeAssets,
     bankAccountInfo: getSetting('bankAccountInfo', ''),
     contactInfo: getSetting('contactInfo', ''),
     businessInfo: getSetting('businessInfo', ''),
@@ -3687,6 +3753,14 @@ app.post(
   '/admin/settings',
   requireAdmin,
   upload.fields([
+    { name: 'dayHeaderLogo', maxCount: 1 },
+    { name: 'nightHeaderLogo', maxCount: 1 },
+    { name: 'dayHeaderSymbol', maxCount: 1 },
+    { name: 'nightHeaderSymbol', maxCount: 1 },
+    { name: 'dayFooterLogo', maxCount: 1 },
+    { name: 'nightFooterLogo', maxCount: 1 },
+    { name: 'dayBackgroundImage', maxCount: 1 },
+    { name: 'nightBackgroundImage', maxCount: 1 },
     { name: 'headerLogo', maxCount: 1 },
     { name: 'headerSymbol', maxCount: 1 },
     { name: 'footerLogo', maxCount: 1 },
@@ -3695,7 +3769,16 @@ app.post(
   (req, res) => {
     const backPath = safeBackPath(req, '/admin/site');
     const siteName = String(req.body.siteName || 'Chrono Lab').trim();
-    const backgroundType = String(req.body.backgroundType || 'color').trim();
+    const dayBackgroundType = String(
+      req.body.dayBackgroundType || req.body.backgroundType || getSetting('dayBackgroundType', 'color')
+    ).trim() === 'image'
+      ? 'image'
+      : 'color';
+    const nightBackgroundType = String(
+      req.body.nightBackgroundType || getSetting('nightBackgroundType', dayBackgroundType)
+    ).trim() === 'image'
+      ? 'image'
+      : 'color';
     const dayThemeDefaults = DEFAULT_THEME_COLORS.day;
     const nightThemeDefaults = DEFAULT_THEME_COLORS.night;
 
@@ -3760,13 +3843,11 @@ app.post(
     setSetting('nightCardDarkTextColor', nightCardDarkTextColor);
     setSetting('nightChipColor', nightChipColor);
 
+    setSetting('dayBackgroundType', dayBackgroundType);
+    setSetting('nightBackgroundType', nightBackgroundType);
+
     // Backward-compatible legacy keys
     setSetting('headerColor', dayHeaderColor);
-    setSetting('backgroundType', backgroundType === 'image' ? 'image' : 'color');
-    setSetting(
-      'backgroundValue',
-      backgroundType === 'image' ? getSetting('backgroundValue', dayBackgroundColor) : dayBackgroundColor
-    );
     setSetting('bankAccountInfo', bankAccountInfo);
     setSetting('contactInfo', contactInfo);
     setSetting('businessInfo', businessInfo);
@@ -3782,24 +3863,42 @@ app.post(
       }
     }
 
-    const headerLogoFile = req.files?.headerLogo?.[0];
-    const headerSymbolFile = req.files?.headerSymbol?.[0];
-    const footerLogoFile = req.files?.footerLogo?.[0];
-    const backgroundImageFile = req.files?.backgroundImage?.[0];
+    const dayHeaderLogoFile = req.files?.dayHeaderLogo?.[0] || req.files?.headerLogo?.[0];
+    const nightHeaderLogoFile = req.files?.nightHeaderLogo?.[0];
+    const dayHeaderSymbolFile = req.files?.dayHeaderSymbol?.[0] || req.files?.headerSymbol?.[0];
+    const nightHeaderSymbolFile = req.files?.nightHeaderSymbol?.[0];
+    const dayFooterLogoFile = req.files?.dayFooterLogo?.[0] || req.files?.footerLogo?.[0];
+    const nightFooterLogoFile = req.files?.nightFooterLogo?.[0];
+    const dayBackgroundImageFile = req.files?.dayBackgroundImage?.[0] || req.files?.backgroundImage?.[0];
+    const nightBackgroundImageFile = req.files?.nightBackgroundImage?.[0];
 
-    if (headerLogoFile) {
-      setSetting('headerLogoPath', fileUrl(headerLogoFile));
+    if (dayHeaderLogoFile) setSetting('dayHeaderLogoPath', fileUrl(dayHeaderLogoFile));
+    if (nightHeaderLogoFile) setSetting('nightHeaderLogoPath', fileUrl(nightHeaderLogoFile));
+    if (dayHeaderSymbolFile) setSetting('dayHeaderSymbolPath', fileUrl(dayHeaderSymbolFile));
+    if (nightHeaderSymbolFile) setSetting('nightHeaderSymbolPath', fileUrl(nightHeaderSymbolFile));
+    if (dayFooterLogoFile) setSetting('dayFooterLogoPath', fileUrl(dayFooterLogoFile));
+    if (nightFooterLogoFile) setSetting('nightFooterLogoPath', fileUrl(nightFooterLogoFile));
+    if (dayBackgroundImageFile) setSetting('dayBackgroundImagePath', fileUrl(dayBackgroundImageFile));
+    if (nightBackgroundImageFile) setSetting('nightBackgroundImagePath', fileUrl(nightBackgroundImageFile));
+
+    if (dayBackgroundType === 'color') {
+      setSetting('dayBackgroundImagePath', '');
     }
-    if (headerSymbolFile) {
-      setSetting('headerSymbolPath', fileUrl(headerSymbolFile));
+    if (nightBackgroundType === 'color') {
+      setSetting('nightBackgroundImagePath', '');
     }
-    if (footerLogoFile) {
-      setSetting('footerLogoPath', fileUrl(footerLogoFile));
-    }
-    if (backgroundImageFile) {
-      setSetting('backgroundType', 'image');
-      setSetting('backgroundValue', fileUrl(backgroundImageFile));
-    }
+
+    // Legacy aliases keep old code/data compatible
+    setSetting('headerLogoPath', getSetting('dayHeaderLogoPath', ''));
+    setSetting('headerSymbolPath', getSetting('dayHeaderSymbolPath', ''));
+    setSetting('footerLogoPath', getSetting('dayFooterLogoPath', ''));
+    setSetting('backgroundType', dayBackgroundType);
+    setSetting(
+      'backgroundValue',
+      dayBackgroundType === 'image'
+        ? getSetting('dayBackgroundImagePath', '')
+        : dayBackgroundColor
+    );
 
     setFlash(req, 'success', '사이트 설정이 저장되었습니다.');
     res.redirect(backPath);

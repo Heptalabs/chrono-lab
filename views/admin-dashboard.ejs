@@ -1002,19 +1002,14 @@
   <%
     const dayThemeColors = settings.dayThemeColors || {};
     const nightThemeColors = settings.nightThemeColors || {};
+    const dayThemeAssets = settings.dayThemeAssets || {};
+    const nightThemeAssets = settings.nightThemeAssets || {};
   %>
   <article class="block-card">
     <h3><%= isEn ? 'Site Customization' : '사이트 커스터마이징' %></h3>
     <form method="post" action="/admin/settings" enctype="multipart/form-data" class="form-grid">
       <label><%= isEn ? 'Site Name' : '쇼핑몰 이름' %>
         <input type="text" name="siteName" value="<%= settings.siteName %>" />
-      </label>
-
-      <label><%= isEn ? 'Background Type' : '배경 타입' %>
-        <select name="backgroundType">
-          <option value="color" <%= settings.backgroundType === 'color' ? 'selected' : '' %>>Color</option>
-          <option value="image" <%= settings.backgroundType === 'image' ? 'selected' : '' %>>Image</option>
-        </select>
       </label>
 
       <fieldset class="theme-color-fieldset">
@@ -1045,6 +1040,36 @@
         </label>
         <label><%= isEn ? 'Chip/Control Fill' : '칩/컨트롤 배경 컬러' %>
           <input type="color" name="dayChipColor" value="<%= dayThemeColors.chipColor || '#f5f6f8' %>" />
+        </label>
+        <label><%= isEn ? 'Background Type' : '배경 타입' %>
+          <select name="dayBackgroundType">
+            <option value="color" <%= (dayThemeAssets.backgroundType || 'color') === 'color' ? 'selected' : '' %>><%= isEn ? 'Color' : '컬러' %></option>
+            <option value="image" <%= (dayThemeAssets.backgroundType || 'color') === 'image' ? 'selected' : '' %>><%= isEn ? 'Image' : '이미지' %></option>
+          </select>
+        </label>
+        <label><%= isEn ? 'Background Image Upload (Day)' : '배경 이미지 업로드 (데이)' %>
+          <input type="file" name="dayBackgroundImage" accept="image/*" />
+          <% if (dayThemeAssets.backgroundImagePath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.backgroundImagePath %></code></small>
+          <% } %>
+        </label>
+        <label><%= isEn ? 'Header Symbol Upload (Day)' : '헤더 심볼 업로드 (데이)' %>
+          <input type="file" name="dayHeaderSymbol" accept="image/*" />
+          <% if (dayThemeAssets.headerSymbolPath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.headerSymbolPath %></code></small>
+          <% } %>
+        </label>
+        <label><%= isEn ? 'Header Logo Upload (Day)' : '헤더 로고 업로드 (데이)' %>
+          <input type="file" name="dayHeaderLogo" accept="image/*" />
+          <% if (dayThemeAssets.headerLogoPath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.headerLogoPath %></code></small>
+          <% } %>
+        </label>
+        <label><%= isEn ? 'Footer Logo Upload (Day)' : '푸터 로고 업로드 (데이)' %>
+          <input type="file" name="dayFooterLogo" accept="image/*" />
+          <% if (dayThemeAssets.footerLogoPath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.footerLogoPath %></code></small>
+          <% } %>
         </label>
       </fieldset>
 
@@ -1077,23 +1102,37 @@
         <label><%= isEn ? 'Chip/Control Fill' : '칩/컨트롤 배경 컬러' %>
           <input type="color" name="nightChipColor" value="<%= nightThemeColors.chipColor || '#f3f4f6' %>" />
         </label>
+        <label><%= isEn ? 'Background Type' : '배경 타입' %>
+          <select name="nightBackgroundType">
+            <option value="color" <%= (nightThemeAssets.backgroundType || 'color') === 'color' ? 'selected' : '' %>><%= isEn ? 'Color' : '컬러' %></option>
+            <option value="image" <%= (nightThemeAssets.backgroundType || 'color') === 'image' ? 'selected' : '' %>><%= isEn ? 'Image' : '이미지' %></option>
+          </select>
+        </label>
+        <label><%= isEn ? 'Background Image Upload (Night)' : '배경 이미지 업로드 (나이트)' %>
+          <input type="file" name="nightBackgroundImage" accept="image/*" />
+          <% if (nightThemeAssets.backgroundImagePath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.backgroundImagePath %></code></small>
+          <% } %>
+        </label>
+        <label><%= isEn ? 'Header Symbol Upload (Night)' : '헤더 심볼 업로드 (나이트)' %>
+          <input type="file" name="nightHeaderSymbol" accept="image/*" />
+          <% if (nightThemeAssets.headerSymbolPath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.headerSymbolPath %></code></small>
+          <% } %>
+        </label>
+        <label><%= isEn ? 'Header Logo Upload (Night)' : '헤더 로고 업로드 (나이트)' %>
+          <input type="file" name="nightHeaderLogo" accept="image/*" />
+          <% if (nightThemeAssets.headerLogoPath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.headerLogoPath %></code></small>
+          <% } %>
+        </label>
+        <label><%= isEn ? 'Footer Logo Upload (Night)' : '푸터 로고 업로드 (나이트)' %>
+          <input type="file" name="nightFooterLogo" accept="image/*" />
+          <% if (nightThemeAssets.footerLogoPath) { %>
+            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.footerLogoPath %></code></small>
+          <% } %>
+        </label>
       </fieldset>
-
-      <label><%= isEn ? 'Background Image Upload' : '배경 이미지 업로드' %>
-        <input type="file" name="backgroundImage" accept="image/*" />
-      </label>
-
-      <label><%= isEn ? 'Header Symbol Upload' : '헤더 심볼 업로드' %>
-        <input type="file" name="headerSymbol" accept="image/*" />
-      </label>
-
-      <label><%= isEn ? 'Header Logo Upload' : '헤더 로고 업로드' %>
-        <input type="file" name="headerLogo" accept="image/*" />
-      </label>
-
-      <label><%= isEn ? 'Footer Logo Upload' : '푸터 로고 업로드' %>
-        <input type="file" name="footerLogo" accept="image/*" />
-      </label>
 
       <label><%= isEn ? 'Default Language' : '기본 언어' %>
         <select name="languageDefault">
