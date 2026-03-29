@@ -1164,7 +1164,7 @@
 
   <% if (tab === 'menus') { %>
   <article class="block-card">
-    <h3><%= isEn ? 'Add / Remove Menus' : '메뉴 추가/삭제' %></h3>
+    <h3><%= isEn ? 'Menu Manager' : '메뉴 관리' %></h3>
     <form method="post" action="/admin/menu/add" class="form-grid">
       <label><%= isEn ? 'Menu Label (KR)' : '메뉴명 (KR)' %>
         <input type="text" name="labelKo" required />
@@ -1183,9 +1183,15 @@
         <div class="admin-list-item">
           <strong><%= menu.labelKo %> / <%= menu.labelEn %></strong>
           <span><%= menu.path %></span>
-          <form method="post" action="/admin/menu/remove/<%= menu.id %>" class="inline-form">
-            <button type="submit" class="chip"><%= isEn ? 'Delete' : '삭제' %></button>
-          </form>
+          <span class="muted-label"><%= menu.isHidden ? (isEn ? 'Hidden' : '숨김') : (isEn ? 'Visible' : '표시중') %></span>
+          <div class="admin-account-actions">
+            <form method="post" action="/admin/menu/toggle/<%= menu.id %>" class="inline-form">
+              <button type="submit" class="chip"><%= menu.isHidden ? (isEn ? 'Show' : '표시') : (isEn ? 'Hide' : '숨김') %></button>
+            </form>
+            <form method="post" action="/admin/menu/remove/<%= menu.id %>" class="inline-form">
+              <button type="submit" class="chip"><%= isEn ? 'Delete' : '삭제' %></button>
+            </form>
+          </div>
         </div>
       <% }) %>
     </div>

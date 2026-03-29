@@ -191,24 +191,38 @@ function toKstDate() {
   return `${y}-${m}-${d}`;
 }
 
-function parseMenus(rawMenus) {
+function parseMenus(rawMenus, options = {}) {
+  const includeHidden = Boolean(options.includeHidden);
+
   try {
     const parsed = JSON.parse(rawMenus);
     if (!Array.isArray(parsed)) {
       return getDefaultMenus();
     }
 
-    const menus = parsed
+    const normalizedMenus = parsed
       .filter((menu) => menu && menu.path)
       .map((menu, idx) => ({
         id: String(menu.id || `menu-${idx + 1}`),
         labelKo: String(menu.labelKo || menu.labelEn || `메뉴${idx + 1}`),
         labelEn: String(menu.labelEn || menu.labelKo || `Menu${idx + 1}`),
-        path: sanitizePath(String(menu.path || ''))
+        path: sanitizePath(String(menu.path || '')),
+        isHidden:
+          menu.isHidden === true ||
+          String(menu.isHidden || '').toLowerCase() === 'true' ||
+          String(menu.isHidden || '') === '1'
       }))
       .filter((menu) => !menu.path.startsWith('/admin'));
 
-    return menus.length > 0 ? menus : getDefaultMenus();
+    if (normalizedMenus.length === 0) {
+      return getDefaultMenus();
+    }
+
+    if (includeHidden) {
+      return normalizedMenus;
+    }
+
+    return normalizedMenus.filter((menu) => !menu.isHidden);
   } catch {
     return getDefaultMenus();
   }
@@ -2949,7 +2963,7 @@ function buildAdminDashboardViewData(lang = 'ko', options = {}) {
   const securityOptions = options.securityOptions || {};
   const memberOptions = options.memberOptions || {};
   const includeDashboardStats = options.includeDashboardStats !== false;
-  const publicMenus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
+  const publicMenus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())), { includeHidden: true });
   const dayThemeColors = getThemeColorConfig('day');
   const nightThemeColors = getThemeColorConfig('night');
   const dayThemeAssets = getThemeAssetConfig('day');
@@ -3726,9 +3740,9 @@ app.post('/admin/menu/add', requireAdmin, (req, res) => {
     return res.redirect(backPath);
   }
 
-  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
+  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())), { includeHidden: true });
   const id = `menu-${Date.now()}`;
-  menus.push({ id, labelKo, labelEn, path: menuPath });
+  menus.push({ id, labelKo, labelEn, path: menuPath, isHidden: false });
   setSetting('menus', JSON.stringify(menus));
 
   setFlash(req, 'success', '메뉴가 추가되었습니다.');
@@ -3738,15 +3752,51 @@ app.post('/admin/menu/add', requireAdmin, (req, res) => {
 app.post('/admin/menu/remove/:id', requireAdmin, (req, res) => {
   const backPath = safeBackPath(req, '/admin/menus');
   const id = String(req.params.id || '');
-  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
+  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())), { includeHidden: true });
   const nextMenus = menus.filter((menu) => menu.id !== id);
   if (nextMenus.length === 0) {
     setFlash(req, 'error', '최소 1개 이상의 메뉴는 유지되어야 합니다.');
     return res.redirect(backPath);
   }
+  if (!nextMenus.some((menu) => !menu.isHidden)) {
+    setFlash(req, 'error', '최소 1개 이상의 메뉴는 표시 상태여야 합니다.');
+    return res.redirect(backPath);
+  }
   setSetting('menus', JSON.stringify(nextMenus));
   setFlash(req, 'success', '메뉴가 삭제되었습니다.');
   res.redirect(backPath);
+});
+
+app.post('/admin/menu/toggle/:id', requireAdmin, (req, res) => {
+  const backPath = safeBackPath(req, '/admin/menus');
+  const id = String(req.params.id || '');
+  const menus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())), { includeHidden: true });
+  const targetIndex = menus.findIndex((menu) => menu.id === id);
+
+  if (targetIndex < 0) {
+    setFlash(req, 'error', '메뉴를 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  const target = menus[targetIndex];
+  const nextHidden = !Boolean(target.isHidden);
+
+  if (nextHidden) {
+    const visibleCount = menus.filter((menu) => !menu.isHidden).length;
+    if (visibleCount <= 1) {
+      setFlash(req, 'error', '최소 1개 이상의 메뉴는 표시 상태여야 합니다.');
+      return res.redirect(backPath);
+    }
+  }
+
+  menus[targetIndex] = {
+    ...target,
+    isHidden: nextHidden
+  };
+
+  setSetting('menus', JSON.stringify(menus));
+  setFlash(req, 'success', nextHidden ? '메뉴를 숨김 처리했습니다.' : '메뉴를 다시 표시합니다.');
+  return res.redirect(backPath);
 });
 
 app.post(
@@ -3855,7 +3905,11 @@ app.post(
 
     if (req.body.menusJson) {
       try {
-        const parsedMenus = parseMenus(req.body.menusJson);
+        const parsedMenus = parseMenus(req.body.menusJson, { includeHidden: true });
+        if (!parsedMenus.some((menu) => !menu.isHidden)) {
+          setFlash(req, 'error', '표시 상태 메뉴를 최소 1개 이상 유지해 주세요.');
+          return res.redirect(backPath);
+        }
         setSetting('menus', JSON.stringify(parsedMenus));
       } catch {
         setFlash(req, 'error', '메뉴 JSON 형식이 올바르지 않습니다.');

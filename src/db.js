@@ -15,13 +15,13 @@ db.pragma('foreign_keys = ON');
 export const SHOP_PRODUCT_GROUPS = ['공장제', '젠파츠', '현지중고'];
 
 const defaultMenus = [
-  { id: 'home', labelKo: '메인페이지', labelEn: 'Main', path: '/main' },
-  { id: 'notice', labelKo: '공지사항', labelEn: 'Notice', path: '/notice' },
-  { id: 'news', labelKo: '뉴스', labelEn: 'News', path: '/news' },
-  { id: 'shop', labelKo: '쇼핑몰', labelEn: 'Shop', path: '/shop' },
-  { id: 'qc', labelKo: 'QC', labelEn: 'QC', path: '/qc' },
-  { id: 'review', labelKo: '구매후기', labelEn: 'Reviews', path: '/review' },
-  { id: 'inquiry', labelKo: '문의', labelEn: 'Inquiry', path: '/inquiry' }
+  { id: 'home', labelKo: '메인페이지', labelEn: 'Main', path: '/main', isHidden: false },
+  { id: 'notice', labelKo: '공지사항', labelEn: 'Notice', path: '/notice', isHidden: false },
+  { id: 'news', labelKo: '뉴스', labelEn: 'News', path: '/news', isHidden: false },
+  { id: 'shop', labelKo: '쇼핑몰', labelEn: 'Shop', path: '/shop', isHidden: false },
+  { id: 'qc', labelKo: 'QC', labelEn: 'QC', path: '/qc', isHidden: false },
+  { id: 'review', labelKo: '구매후기', labelEn: 'Reviews', path: '/review', isHidden: false },
+  { id: 'inquiry', labelKo: '문의', labelEn: 'Inquiry', path: '/inquiry', isHidden: false }
 ];
 
 const defaultSettings = {
@@ -183,7 +183,11 @@ function normalizeMenus(rawMenus) {
       id: String(menu.id || `custom-${idx + 1}`),
       labelKo: String(menu.labelKo || menu.labelEn || `메뉴${idx + 1}`),
       labelEn: String(menu.labelEn || menu.labelKo || `Menu${idx + 1}`),
-      path: normalizePath(menu.path)
+      path: normalizePath(menu.path),
+      isHidden:
+        menu.isHidden === true ||
+        String(menu.isHidden || '').toLowerCase() === 'true' ||
+        String(menu.isHidden || '') === '1'
     }))
     .filter((menu) => !menu.path.startsWith('/admin'));
 
@@ -198,7 +202,8 @@ function normalizeMenus(rawMenus) {
       return {
         ...defaultMenu,
         labelKo: filtered[foundIndex].labelKo || defaultMenu.labelKo,
-        labelEn: filtered[foundIndex].labelEn || defaultMenu.labelEn
+        labelEn: filtered[foundIndex].labelEn || defaultMenu.labelEn,
+        isHidden: Boolean(filtered[foundIndex].isHidden)
       };
     }
 
