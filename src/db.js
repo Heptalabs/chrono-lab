@@ -224,6 +224,39 @@ function ensureDailyFunnelEventsTable() {
   `);
 }
 
+function backfillDailyFunnelEventsFromOrders() {
+  db.prepare(
+    `
+      INSERT INTO daily_funnel_events (event_date, event_key, event_count)
+      SELECT
+        date(datetime(created_at, '+9 hours')) AS event_date,
+        'order_created' AS event_key,
+        COUNT(*) AS event_count
+      FROM orders
+      GROUP BY date(datetime(created_at, '+9 hours'))
+      ON CONFLICT(event_date, event_key)
+      DO UPDATE SET
+        event_count = MAX(daily_funnel_events.event_count, excluded.event_count)
+    `
+  ).run();
+
+  db.prepare(
+    `
+      INSERT INTO daily_funnel_events (event_date, event_key, event_count)
+      SELECT
+        date(datetime(COALESCE(checked_at, created_at), '+9 hours')) AS event_date,
+        'payment_confirmed' AS event_key,
+        COUNT(*) AS event_count
+      FROM orders
+      WHERE status != 'PENDING_REVIEW'
+      GROUP BY date(datetime(COALESCE(checked_at, created_at), '+9 hours'))
+      ON CONFLICT(event_date, event_key)
+      DO UPDATE SET
+        event_count = MAX(daily_funnel_events.event_count, excluded.event_count)
+    `
+  ).run();
+}
+
 function ensureOrderStatusLogTable() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS order_status_logs (
@@ -930,6 +963,7 @@ export function initDb() {
   seedOrdersAndQc(demoUserId);
   seedReviews(demoUserId);
   seedInquiries(demoUserId);
+  backfillDailyFunnelEventsFromOrders();
 
   ensureOrderStatusLogTable();
   db.prepare(

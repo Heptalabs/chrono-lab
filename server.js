@@ -105,6 +105,8 @@ const DEFAULT_THEME_COLORS = Object.freeze({
 const AUTH_ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
 const DEFAULT_AUTH_MAX_ATTEMPTS = 15;
 const authAttemptStore = new Map();
+const DASHBOARD_STATS_CACHE_TTL_MS = Math.max(5000, Number(process.env.DASHBOARD_STATS_CACHE_TTL_MS || 30000));
+const SESSION_FUNNEL_KEYS_LIMIT = 400;
 const TRACKING_AUTO_POLL_MS = Math.max(60 * 1000, Number(process.env.TRACKING_AUTO_POLL_MS || 10 * 60 * 1000));
 const TRACKING_REQUEST_TIMEOUT_MS = Math.max(
   3000,
@@ -596,6 +598,10 @@ function appendOrderStatusLog(orderId, orderNo, fromStatus, toStatus, eventNote 
 
 let trackingPollInFlight = false;
 let lastTrackingPollMs = 0;
+let dashboardStatsCache = {
+  expiresAt: 0,
+  value: null
+};
 
 function isDeliveredState(payload) {
   const stateId = String(payload?.state?.id || '').toLowerCase();
@@ -750,6 +756,44 @@ function parsePositiveInt(rawValue, fallback = 1) {
 
 function normalizePhone(rawPhone = '') {
   return String(rawPhone).replace(/[^0-9]/g, '');
+}
+
+function incrementFunnelEventUniqueInSession(req, eventKey, scopeKey = '') {
+  const key = String(eventKey || '').trim();
+  if (!key) {
+    return;
+  }
+
+  const today = toKstDate();
+  const scope = String(scopeKey || '').trim();
+  const sessionKey = `${today}:${key}:${scope}`;
+
+  if (!req.session) {
+    incrementFunnelEvent(today, key);
+    return;
+  }
+
+  if (!req.session.funnelEventMemo || typeof req.session.funnelEventMemo !== 'object') {
+    req.session.funnelEventMemo = {};
+  }
+
+  const memo = req.session.funnelEventMemo;
+  if (memo[sessionKey]) {
+    return;
+  }
+
+  memo[sessionKey] = Date.now();
+  const keys = Object.keys(memo);
+  if (keys.length > SESSION_FUNNEL_KEYS_LIMIT) {
+    keys
+      .sort((a, b) => Number(memo[a] || 0) - Number(memo[b] || 0))
+      .slice(0, keys.length - SESSION_FUNNEL_KEYS_LIMIT)
+      .forEach((oldKey) => {
+        delete memo[oldKey];
+      });
+  }
+
+  incrementFunnelEvent(today, key);
 }
 
 function safeBackPath(req, fallback = '/main') {
@@ -1223,7 +1267,7 @@ app.get('/shop/item/:id', (req, res) => {
     return res.status(404).render('simple-error', { title: 'Not Found', message: '상품을 찾을 수 없습니다.' });
   }
 
-  incrementFunnelEvent(toKstDate(), FUNNEL_EVENT.PRODUCT_VIEW);
+  incrementFunnelEventUniqueInSession(req, FUNNEL_EVENT.PRODUCT_VIEW, `product:${id}`);
 
   const imageRows = db
     .prepare(
@@ -1274,7 +1318,7 @@ app.get('/shop/item/:id/purchase', requireAuth, (req, res) => {
     return res.redirect(`/shop/item/${id}`);
   }
 
-  incrementFunnelEvent(toKstDate(), FUNNEL_EVENT.PURCHASE_VIEW);
+  incrementFunnelEventUniqueInSession(req, FUNNEL_EVENT.PURCHASE_VIEW, `product:${id}`);
 
   const formData = {
     buyerName: req.user.username || '',
@@ -2031,6 +2075,20 @@ function getMemberSignupRangeSummary(baseDate) {
     year: sumRange(365),
     total: Number(totalRow?.count || 0)
   };
+}
+
+function getCachedAdminDashboardStats(force = false) {
+  const now = Date.now();
+  if (!force && dashboardStatsCache.value && dashboardStatsCache.expiresAt > now) {
+    return dashboardStatsCache.value;
+  }
+
+  const fresh = buildAdminDashboardStats();
+  dashboardStatsCache = {
+    value: fresh,
+    expiresAt: now + DASHBOARD_STATS_CACHE_TTL_MS
+  };
+  return fresh;
 }
 
 function buildAdminDashboardStats() {
@@ -2831,6 +2889,7 @@ function buildMemberManagePanelData(lang = 'ko', options = {}) {
 function buildAdminDashboardViewData(lang = 'ko', options = {}) {
   const securityOptions = options.securityOptions || {};
   const memberOptions = options.memberOptions || {};
+  const includeDashboardStats = options.includeDashboardStats !== false;
   const publicMenus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
   const dayThemeColors = getThemeColorConfig('day');
   const nightThemeColors = getThemeColorConfig('night');
@@ -2951,7 +3010,7 @@ function buildAdminDashboardViewData(lang = 'ko', options = {}) {
     inquiries,
     securityPanelData,
     memberManagePanelData,
-    dashboardStats: buildAdminDashboardStats(),
+    dashboardStats: includeDashboardStats ? getCachedAdminDashboardStats() : null,
     trackingCarriers: TRACKING_CARRIERS,
     formatPrice,
     productGroups: SHOP_PRODUCT_GROUPS
@@ -2963,7 +3022,8 @@ function renderAdminDashboard(req, res, activeTab, extraData = {}) {
     res.locals.ctx.lang,
     {
       securityOptions: extraData.securityOptions || parseSecurityQuery(req.query || {}),
-      memberOptions: extraData.memberOptions || parseMemberManageQuery(req.query || {})
+      memberOptions: extraData.memberOptions || parseMemberManageQuery(req.query || {}),
+      includeDashboardStats: activeTab === 'dashboard'
     }
   );
   return res.render('admin-dashboard', {
@@ -2986,7 +3046,8 @@ function handleSecurityDenied(req, res, securitySection = 'profile', securityOpt
     securityAccessDenied: true,
     ...buildAdminDashboardViewData(res.locals.ctx.lang, {
       securityOptions,
-      memberOptions: parseMemberManageQuery(req.query || {})
+      memberOptions: parseMemberManageQuery(req.query || {}),
+      includeDashboardStats: false
     })
   });
 }

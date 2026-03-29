@@ -220,7 +220,7 @@
 
       <div class="kpi-card">
         <h4><%= isEn ? 'Conversion Funnel' : '전환 퍼널' %></h4>
-        <p class="muted-label"><%= isEn ? `${Number(stats.conversionFunnel.windowDays || 30)}-day conversion funnel.` : `최근 ${Number(stats.conversionFunnel.windowDays || 30)}일 전환 퍼널입니다.` %></p>
+        <p class="muted-label"><%= isEn ? `${Number(stats.conversionFunnel.windowDays || 30)}-day conversion funnel (refresh deduplicated).` : `최근 ${Number(stats.conversionFunnel.windowDays || 30)}일 전환 퍼널입니다. (새로고침 중복 집계 보정)` %></p>
         <ul class="metric-list">
           <li><span><%= isEn ? 'Product Views' : '상품조회' %></span><strong><%= Number(stats.conversionFunnel.window.productViews || 0).toLocaleString() %></strong></li>
           <li><span><%= isEn ? 'Purchase Views' : '구매페이지 진입' %></span><strong><%= Number(stats.conversionFunnel.window.purchaseViews || 0).toLocaleString() %></strong></li>
