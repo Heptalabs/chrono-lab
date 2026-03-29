@@ -32,6 +32,11 @@
       alert: { page: 1, totalPages: 1, totalCount: 0, pageSize: 20 }
     }
   };
+  const memberPanel = memberManagePanelData || {
+    members: [],
+    filters: { section: 'active', keyword: '' },
+    pagination: { page: 1, totalPages: 1, totalCount: 0, pageSize: 20 }
+  };
   const securityTab = ['profile', 'admins', 'logs', 'alerts'].includes(String(securitySection || ''))
     ? String(securitySection)
     : 'profile';
@@ -547,6 +552,170 @@
         </section>
       <% } %>
     <% } %>
+  </article>
+  <% } %>
+
+  <% if (tab === 'members') { %>
+  <article class="block-card">
+    <h3><%= isEn ? 'Member Management' : '회원 관리' %></h3>
+    <% const memberFilters = memberPanel.filters || { section: 'active', keyword: '' }; %>
+    <% const memberPager = memberPanel.pagination || { page: 1, totalPages: 1, totalCount: memberPanel.members.length }; %>
+
+    <div class="security-subnav">
+      <a href="/admin/members?memberSection=active" class="menu-pill <%= (memberFilters.section || 'active') === 'active' ? 'active' : '' %>">
+        <%= isEn ? 'Members' : '회원 목록' %>
+      </a>
+      <a href="/admin/members?memberSection=blocked" class="menu-pill <%= (memberFilters.section || 'active') === 'blocked' ? 'active' : '' %>">
+        <%= isEn ? 'Blacklist' : '블랙리스트' %>
+      </a>
+    </div>
+
+    <form method="get" action="/admin/members" class="admin-filter-row">
+      <input type="hidden" name="memberSection" value="<%= memberFilters.section || 'active' %>" />
+      <label class="admin-filter-item">
+        <span><%= isEn ? 'Search' : '검색어' %></span>
+        <input
+          type="text"
+          name="memberKeyword"
+          value="<%= memberFilters.keyword || '' %>"
+          placeholder="<%= isEn ? 'ID / Name / Email / Phone' : '아이디 / 이름 / 이메일 / 전화번호' %>"
+        />
+      </label>
+      <div class="admin-filter-actions">
+        <button type="submit" class="chip dark"><%= isEn ? 'Filter' : '조회' %></button>
+        <a href="/admin/members?memberSection=<%= memberFilters.section || 'active' %>" class="chip"><%= isEn ? 'Reset' : '초기화' %></a>
+      </div>
+    </form>
+    <p class="muted-label"><%= isEn ? `Total ${memberPager.totalCount} records · Page ${memberPager.page}/${memberPager.totalPages}` : `총 ${memberPager.totalCount}건 · ${memberPager.page}/${memberPager.totalPages} 페이지` %></p>
+
+    <div class="admin-list">
+      <% if (memberPanel.members.length === 0) { %>
+        <p class="muted-label"><%= isEn ? 'No members found for current filters.' : '조건에 맞는 회원이 없습니다.' %></p>
+      <% } %>
+
+      <% memberPanel.members.forEach((memberItem) => { %>
+        <div class="admin-list-item admin-account-item">
+          <div class="admin-account-row">
+            <div class="admin-account-brief">
+              <strong><%= memberItem.username %></strong>
+              <span><%= memberItem.full_name || '-' %> · <%= memberItem.email || '-' %></span>
+            </div>
+            <div class="admin-account-actions">
+              <% if (memberItem.is_blocked) { %>
+                <span class="chip"><%= isEn ? 'Blocked' : '블락됨' %></span>
+              <% } %>
+              <button
+                type="button"
+                class="chip"
+                data-member-edit-toggle="<%= memberItem.id %>"
+                aria-expanded="false"
+                aria-controls="member-editor-<%= memberItem.id %>"
+              ><%= isEn ? 'Edit' : '수정' %></button>
+              <% if (memberItem.is_blocked) { %>
+                <form method="post" action="/admin/member/<%= memberItem.id %>/unblock" class="inline-form">
+                  <button type="submit" class="chip dark"><%= isEn ? 'Unblock' : '블락해제' %></button>
+                </form>
+              <% } else { %>
+                <form method="post" action="/admin/member/<%= memberItem.id %>/block" class="inline-form">
+                  <input type="hidden" name="blockReason" value="" />
+                  <button type="submit" class="chip"><%= isEn ? 'Block' : '블락' %></button>
+                </form>
+              <% } %>
+            </div>
+          </div>
+
+          <div class="admin-account-editor" id="member-editor-<%= memberItem.id %>">
+            <div class="admin-account-meta">
+              <small>ID: <%= memberItem.id %></small>
+              <small><%= isEn ? 'Created' : '가입일' %>: <%= memberItem.created_at ? memberItem.created_at.slice(0, 16) : '-' %></small>
+              <small><%= isEn ? 'Order Count' : '주문건수' %>: <%= memberItem.order_count %></small>
+              <% if (memberItem.is_blocked) { %>
+                <small><%= isEn ? 'Blocked At' : '블락일' %>: <%= memberItem.blocked_at ? memberItem.blocked_at.slice(0, 16) : '-' %></small>
+              <% } %>
+            </div>
+
+            <form method="post" action="/admin/member/<%= memberItem.id %>/update" class="form-grid compact">
+              <label><span><%= isEn ? 'ID' : '아이디' %></span><input type="text" name="username" value="<%= memberItem.username %>" required /></label>
+              <label><span><%= isEn ? 'Name' : '이름' %></span><input type="text" name="fullName" value="<%= memberItem.full_name || '' %>" /></label>
+              <label><span><%= isEn ? 'Email' : '이메일' %></span><input type="email" name="email" value="<%= memberItem.email || '' %>" required /></label>
+              <label><span><%= isEn ? 'Phone' : '전화번호' %></span><input type="text" name="phone" value="<%= memberItem.phone || '' %>" /></label>
+              <label class="check-row"><input type="checkbox" name="agreedTerms" <%= memberItem.agreed_terms ? 'checked' : '' %> /> <span><%= isEn ? 'Terms Agreed' : '약관 동의' %></span></label>
+              <button type="submit" class="chip"><%= isEn ? 'Confirm Update' : '정보 수정 확인' %></button>
+            </form>
+
+            <form method="post" action="/admin/member/<%= memberItem.id %>/password" class="form-grid compact">
+              <label><span><%= isEn ? 'New Password' : '새 비밀번호' %></span><input type="password" name="newPassword" required /></label>
+              <label><span><%= isEn ? 'Confirm Password' : '비밀번호 확인' %></span><input type="password" name="newPasswordConfirm" required /></label>
+              <button type="submit" class="chip"><%= isEn ? 'Reset Password' : '비밀번호 재설정' %></button>
+            </form>
+
+            <% if (!memberItem.is_blocked) { %>
+              <form method="post" action="/admin/member/<%= memberItem.id %>/block" class="form-grid compact">
+                <label><span><%= isEn ? 'Block Reason (optional)' : '블락 사유 (선택)' %></span><input type="text" name="blockReason" maxlength="120" /></label>
+                <button type="submit" class="chip"><%= isEn ? 'Block Account' : '계정 블락' %></button>
+              </form>
+            <% } else { %>
+              <p class="muted-label"><%= isEn ? 'Block Reason' : '블락 사유' %>: <%= memberItem.blocked_reason || (isEn ? 'No reason' : '사유 없음') %></p>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <div class="admin-pagination">
+      <% if (memberPager.page > 1) { %>
+        <a
+          class="chip"
+          href="/admin/members?memberSection=<%= memberFilters.section || 'active' %>&memberPage=<%= memberPager.page - 1 %><%= memberFilters.keyword ? `&memberKeyword=${encodeURIComponent(memberFilters.keyword)}` : '' %>"
+        ><%= isEn ? 'Prev' : '이전' %></a>
+      <% } %>
+      <span class="chip muted"><%= memberPager.page %> / <%= memberPager.totalPages %></span>
+      <% if (memberPager.page < memberPager.totalPages) { %>
+        <a
+          class="chip"
+          href="/admin/members?memberSection=<%= memberFilters.section || 'active' %>&memberPage=<%= memberPager.page + 1 %><%= memberFilters.keyword ? `&memberKeyword=${encodeURIComponent(memberFilters.keyword)}` : '' %>"
+        ><%= isEn ? 'Next' : '다음' %></a>
+      <% } %>
+    </div>
+
+    <script>
+      (() => {
+        const toggles = Array.from(document.querySelectorAll('[data-member-edit-toggle]'));
+        if (toggles.length === 0) return;
+
+        const labels = {
+          open: <%- JSON.stringify(isEn ? 'Edit' : '수정') %>,
+          close: <%- JSON.stringify(isEn ? 'Close' : '닫기') %>
+        };
+
+        const closeAll = () => {
+          toggles.forEach((btn) => {
+            const targetId = btn.getAttribute('data-member-edit-toggle');
+            const panel = document.getElementById(`member-editor-${targetId}`);
+            if (!panel) return;
+            panel.classList.remove('open');
+            btn.setAttribute('aria-expanded', 'false');
+            btn.textContent = labels.open;
+          });
+        };
+
+        toggles.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-member-edit-toggle');
+            const panel = document.getElementById(`member-editor-${targetId}`);
+            if (!panel) return;
+
+            const isOpen = panel.classList.contains('open');
+            closeAll();
+            if (!isOpen) {
+              panel.classList.add('open');
+              btn.setAttribute('aria-expanded', 'true');
+              btn.textContent = labels.close;
+            }
+          });
+        });
+      })();
+    </script>
   </article>
   <% } %>
 

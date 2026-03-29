@@ -154,6 +154,22 @@ function ensureUserAdminProfileColumns() {
   addColumnIfMissing('admin_role', "admin_role TEXT NOT NULL DEFAULT ''");
 }
 
+function ensureUserBlockColumns() {
+  const columns = db.prepare('PRAGMA table_info(users)').all();
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  const addColumnIfMissing = (name, ddl) => {
+    if (!columnNames.has(name)) {
+      db.prepare(`ALTER TABLE users ADD COLUMN ${ddl}`).run();
+      columnNames.add(name);
+    }
+  };
+
+  addColumnIfMissing('is_blocked', 'is_blocked INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing('blocked_reason', "blocked_reason TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing('blocked_at', 'blocked_at TEXT');
+}
+
 function ensureOrdersCustomsColumn() {
   const columns = db.prepare('PRAGMA table_info(orders)').all();
   const hasCustomsNo = columns.some((column) => column.name === 'customs_clearance_no');
@@ -738,6 +754,9 @@ export function initDb() {
       agreed_terms INTEGER NOT NULL DEFAULT 1,
       is_admin INTEGER NOT NULL DEFAULT 0,
       admin_role TEXT NOT NULL DEFAULT '',
+      is_blocked INTEGER NOT NULL DEFAULT 0,
+      blocked_reason TEXT NOT NULL DEFAULT '',
+      blocked_at TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -870,6 +889,7 @@ export function initDb() {
 
   ensureProductsCategoryColumn();
   ensureUserAdminProfileColumns();
+  ensureUserBlockColumns();
   ensureOrdersCustomsColumn();
   ensureOrdersTrackingColumns();
   ensureDailyVisitSplitColumns();

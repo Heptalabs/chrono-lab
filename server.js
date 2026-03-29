@@ -52,6 +52,7 @@ const ORDER_STATUS = Object.freeze({
 const ADMIN_MENUS = Object.freeze([
   { id: 'admin-dashboard', labelKo: '대시보드', labelEn: 'Dashboard', path: '/admin/dashboard' },
   { id: 'admin-security', labelKo: '보안', labelEn: 'Security', path: '/admin/security' },
+  { id: 'admin-members', labelKo: '회원관리', labelEn: 'Members', path: '/admin/members' },
   { id: 'admin-site', labelKo: '사이트설정', labelEn: 'Site', path: '/admin/site' },
   { id: 'admin-menus', labelKo: '메뉴관리', labelEn: 'Menus', path: '/admin/menus' },
   { id: 'admin-products', labelKo: '상품관리', labelEn: 'Products', path: '/admin/products' },
@@ -64,6 +65,7 @@ const ADMIN_MENUS = Object.freeze([
 
 const SECURITY_SECTIONS = Object.freeze(['profile', 'admins', 'logs', 'alerts']);
 const SECURITY_PAGE_SIZE = 20;
+const MEMBER_PAGE_SIZE = 20;
 const DATE_INPUT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/;
 
@@ -357,6 +359,22 @@ function normalizeOptionalId(rawValue = '') {
     return 0;
   }
   return parsed;
+}
+
+function normalizeMemberManageSection(rawSection = '') {
+  const section = String(rawSection || '').trim().toLowerCase();
+  if (section === 'blocked' || section === 'blacklist') {
+    return 'blocked';
+  }
+  return 'active';
+}
+
+function parseMemberManageQuery(query = {}) {
+  return {
+    section: normalizeMemberManageSection(query.memberSection || query.section || ''),
+    keyword: String(query.memberKeyword || query.keyword || '').trim().slice(0, 120),
+    page: normalizePositivePage(query.memberPage || query.page || 1)
+  };
 }
 
 function clampPage(page, totalPages) {
@@ -808,7 +826,7 @@ function loadUser(req, res, next) {
   const user = db
     .prepare(
       `
-        SELECT id, email, username, full_name, phone, is_admin, admin_role, created_at
+        SELECT id, email, username, full_name, phone, is_admin, admin_role, is_blocked, blocked_reason, blocked_at, created_at
         FROM users
         WHERE id = ?
         LIMIT 1
@@ -819,7 +837,17 @@ function loadUser(req, res, next) {
   if (!user) {
     req.session.userId = null;
     req.session.isAdmin = false;
+    req.session.adminRole = '';
     req.user = null;
+    return next();
+  }
+
+  if (Number(user.is_blocked) === 1) {
+    req.session.userId = null;
+    req.session.isAdmin = false;
+    req.session.adminRole = '';
+    req.user = null;
+    setFlash(req, 'error', '차단된 계정입니다. 관리자에게 문의해 주세요.');
     return next();
   }
 
@@ -831,6 +859,9 @@ function loadUser(req, res, next) {
     phone: user.phone || '',
     isAdmin: Number(user.is_admin) === 1,
     adminRole: Number(user.is_admin) === 1 ? normalizeAdminRole(user.admin_role) : '',
+    isBlocked: Number(user.is_blocked) === 1,
+    blockedReason: user.blocked_reason || '',
+    blockedAt: user.blocked_at || null,
     isPrimaryAdmin:
       Number(user.is_admin) === 1 && normalizeAdminRole(user.admin_role) === ADMIN_ROLE.PRIMARY,
     createdAt: user.created_at
@@ -986,7 +1017,9 @@ app.use((req, res, next) => {
 
 function requireAuth(req, res, next) {
   if (!req.user) {
-    setFlash(req, 'error', '로그인이 필요합니다.');
+    if (!req.session.flash) {
+      setFlash(req, 'error', '로그인이 필요합니다.');
+    }
     return res.redirect('/login');
   }
   return next();
@@ -994,11 +1027,13 @@ function requireAuth(req, res, next) {
 
 function requireAdmin(req, res, next) {
   if (!req.user?.isAdmin) {
-    setFlash(
-      req,
-      'error',
-      req.user ? '관리자 계정으로 로그인해 주세요.' : '관리자 로그인이 필요합니다.'
-    );
+    if (!req.session.flash) {
+      setFlash(
+        req,
+        'error',
+        req.user ? '관리자 계정으로 로그인해 주세요.' : '관리자 로그인이 필요합니다.'
+      );
+    }
     return res.redirect('/admin/login');
   }
   return next();
@@ -1768,11 +1803,23 @@ app.post(
   }
 
   const user = db
-    .prepare('SELECT id, username, password_hash, is_admin, admin_role FROM users WHERE username = ? LIMIT 1')
+    .prepare(
+      'SELECT id, username, password_hash, is_admin, admin_role, is_blocked, blocked_reason FROM users WHERE username = ? LIMIT 1'
+    )
     .get(username);
 
   if (!user) {
     setFlash(req, 'error', '로그인 정보가 올바르지 않습니다.');
+    return res.redirect('/login');
+  }
+
+  if (Number(user.is_blocked) === 1) {
+    const blockedReason = String(user.blocked_reason || '').trim();
+    setFlash(
+      req,
+      'error',
+      blockedReason ? `차단된 계정입니다. (${blockedReason})` : '차단된 계정입니다. 관리자에게 문의해 주세요.'
+    );
     return res.redirect('/login');
   }
 
@@ -1813,11 +1860,23 @@ app.post(
   const password = String(req.body.password || '');
 
   const user = db
-    .prepare('SELECT id, username, password_hash, is_admin, admin_role FROM users WHERE username = ? LIMIT 1')
+    .prepare(
+      'SELECT id, username, password_hash, is_admin, admin_role, is_blocked, blocked_reason FROM users WHERE username = ? LIMIT 1'
+    )
     .get(username);
 
   if (!user || Number(user.is_admin) !== 1) {
     setFlash(req, 'error', '어드민 계정이 아닙니다.');
+    return res.redirect('/admin/login');
+  }
+
+  if (Number(user.is_blocked) === 1) {
+    const blockedReason = String(user.blocked_reason || '').trim();
+    setFlash(
+      req,
+      'error',
+      blockedReason ? `차단된 계정입니다. (${blockedReason})` : '차단된 계정입니다. 메인관리자에게 문의해 주세요.'
+    );
     return res.redirect('/admin/login');
   }
 
@@ -2271,7 +2330,92 @@ function buildSecurityPanelData(lang = 'ko', options = {}) {
   };
 }
 
-function buildAdminDashboardViewData(lang = 'ko', securityOptions = {}) {
+function buildMemberManagePanelData(lang = 'ko', options = {}) {
+  const filters = {
+    section: normalizeMemberManageSection(options.section || ''),
+    keyword: String(options.keyword || '').trim().slice(0, 120)
+  };
+
+  const where = ['u.is_admin = 0'];
+  const params = [];
+
+  if (filters.section === 'blocked') {
+    where.push('u.is_blocked = 1');
+  } else {
+    where.push('u.is_blocked = 0');
+  }
+
+  if (filters.keyword) {
+    where.push('(u.username LIKE ? OR u.full_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)');
+    const likeKeyword = `%${filters.keyword}%`;
+    params.push(likeKeyword, likeKeyword, likeKeyword, likeKeyword);
+  }
+
+  const whereSql = where.join(' AND ');
+
+  const totalRow = db
+    .prepare(
+      `
+        SELECT COUNT(*) AS count
+        FROM users u
+        WHERE ${whereSql}
+      `
+    )
+    .get(...params);
+  const totalCount = Number(totalRow?.count || 0);
+  const totalPages = Math.max(1, Math.ceil(totalCount / MEMBER_PAGE_SIZE));
+  const page = clampPage(options.page, totalPages);
+  const offset = (page - 1) * MEMBER_PAGE_SIZE;
+
+  const members = db
+    .prepare(
+      `
+        SELECT
+          u.id,
+          u.username,
+          u.full_name,
+          u.email,
+          u.phone,
+          u.agreed_terms,
+          u.is_blocked,
+          u.blocked_reason,
+          u.blocked_at,
+          u.created_at,
+          (
+            SELECT COUNT(*)
+            FROM orders o
+            WHERE o.created_by_user_id = u.id
+          ) AS order_count
+        FROM users u
+        WHERE ${whereSql}
+        ORDER BY u.id DESC
+        LIMIT ?
+        OFFSET ?
+      `
+    )
+    .all(...params, MEMBER_PAGE_SIZE, offset)
+    .map((row) => ({
+      ...row,
+      agreed_terms: Number(row.agreed_terms) === 1,
+      is_blocked: Number(row.is_blocked) === 1,
+      order_count: Number(row.order_count || 0)
+    }));
+
+  return {
+    members,
+    filters,
+    pagination: {
+      page,
+      totalPages,
+      totalCount,
+      pageSize: MEMBER_PAGE_SIZE
+    }
+  };
+}
+
+function buildAdminDashboardViewData(lang = 'ko', options = {}) {
+  const securityOptions = options.securityOptions || {};
+  const memberOptions = options.memberOptions || {};
   const publicMenus = parseMenus(getSetting('menus', JSON.stringify(getDefaultMenus())));
   const dayThemeColors = getThemeColorConfig('day');
   const nightThemeColors = getThemeColorConfig('night');
@@ -2379,6 +2523,7 @@ function buildAdminDashboardViewData(lang = 'ko', securityOptions = {}) {
     )
     .all();
   const securityPanelData = buildSecurityPanelData(lang, securityOptions);
+  const memberManagePanelData = buildMemberManagePanelData(lang, memberOptions);
 
   return {
     settings,
@@ -2390,6 +2535,7 @@ function buildAdminDashboardViewData(lang = 'ko', securityOptions = {}) {
     qcs,
     inquiries,
     securityPanelData,
+    memberManagePanelData,
     dashboardStats: buildAdminDashboardStats(),
     trackingCarriers: TRACKING_CARRIERS,
     formatPrice,
@@ -2400,7 +2546,10 @@ function buildAdminDashboardViewData(lang = 'ko', securityOptions = {}) {
 function renderAdminDashboard(req, res, activeTab, extraData = {}) {
   const viewData = buildAdminDashboardViewData(
     res.locals.ctx.lang,
-    extraData.securityOptions || parseSecurityQuery(req.query || {})
+    {
+      securityOptions: extraData.securityOptions || parseSecurityQuery(req.query || {}),
+      memberOptions: extraData.memberOptions || parseMemberManageQuery(req.query || {})
+    }
   );
   return res.render('admin-dashboard', {
     title: 'Admin Dashboard',
@@ -2420,7 +2569,10 @@ function handleSecurityDenied(req, res, securitySection = 'profile', securityOpt
     activeTab: 'security',
     securitySection: normalizeSecuritySection(securitySection),
     securityAccessDenied: true,
-    ...buildAdminDashboardViewData(res.locals.ctx.lang, securityOptions)
+    ...buildAdminDashboardViewData(res.locals.ctx.lang, {
+      securityOptions,
+      memberOptions: parseMemberManageQuery(req.query || {})
+    })
   });
 }
 
@@ -2785,6 +2937,225 @@ app.post('/admin/security/alert/:id/resolve', requirePrimaryAdmin, (req, res) =>
 
   logAdminActivity(req, 'SECURITY_ALERT_RESOLVE', `resolved alert:${id}`);
   setFlash(req, 'success', '보안 알림을 확인 처리했습니다.');
+  return res.redirect(backPath);
+});
+
+app.get('/admin/members', requireAdmin, (req, res) => {
+  return renderAdminDashboard(req, res, 'members', {
+    memberOptions: parseMemberManageQuery(req.query || {})
+  });
+});
+
+app.post('/admin/member/:id/update', requireAdmin, (req, res) => {
+  const backPath = safeBackPath(req, '/admin/members');
+  const targetId = Number(req.params.id);
+
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    setFlash(req, 'error', '유효하지 않은 회원입니다.');
+    return res.redirect(backPath);
+  }
+
+  const target = db
+    .prepare(
+      `
+        SELECT id, username, is_admin
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `
+    )
+    .get(targetId);
+
+  if (!target || Number(target.is_admin) === 1) {
+    setFlash(req, 'error', '회원 계정을 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  const username = String(req.body.username || '').trim();
+  const fullName = String(req.body.fullName || '').trim();
+  const email = String(req.body.email || '').trim();
+  const phone = normalizePhone(req.body.phone || '');
+  const agreedTerms = req.body.agreedTerms === 'on' ? 1 : 0;
+
+  if (!username || !email) {
+    setFlash(req, 'error', '아이디와 이메일은 필수입니다.');
+    return res.redirect(backPath);
+  }
+
+  if (!USERNAME_REGEX.test(username)) {
+    setFlash(req, 'error', '아이디는 4~20자 영문/숫자/언더스코어만 사용 가능합니다.');
+    return res.redirect(backPath);
+  }
+
+  if (!EMAIL_REGEX.test(email)) {
+    setFlash(req, 'error', '이메일 형식이 올바르지 않습니다.');
+    return res.redirect(backPath);
+  }
+
+  if (phone && !PHONE_REGEX.test(phone)) {
+    setFlash(req, 'error', '전화번호 형식이 올바르지 않습니다.');
+    return res.redirect(backPath);
+  }
+
+  try {
+    db.prepare(
+      `
+        UPDATE users
+        SET username = ?, full_name = ?, email = ?, phone = ?, agreed_terms = ?
+        WHERE id = ? AND is_admin = 0
+      `
+    ).run(username, fullName, email, phone, agreedTerms, targetId);
+  } catch {
+    setFlash(req, 'error', '이미 사용 중인 이메일 또는 아이디입니다.');
+    return res.redirect(backPath);
+  }
+
+  logAdminActivity(req, 'MEMBER_UPDATE', `member:${targetId} updated by ${req.user?.username || 'admin'}`);
+  setFlash(req, 'success', '회원 정보가 수정되었습니다.');
+  return res.redirect(backPath);
+});
+
+app.post('/admin/member/:id/password', requireAdmin, asyncRoute(async (req, res) => {
+  const backPath = safeBackPath(req, '/admin/members');
+  const targetId = Number(req.params.id);
+
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    setFlash(req, 'error', '유효하지 않은 회원입니다.');
+    return res.redirect(backPath);
+  }
+
+  const target = db
+    .prepare(
+      `
+        SELECT id, username, is_admin
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `
+    )
+    .get(targetId);
+
+  if (!target || Number(target.is_admin) === 1) {
+    setFlash(req, 'error', '회원 계정을 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  const newPassword = String(req.body.newPassword || '');
+  const newPasswordConfirm = String(req.body.newPasswordConfirm || '');
+
+  if (!newPassword || !newPasswordConfirm) {
+    setFlash(req, 'error', '새 비밀번호와 확인값을 입력해 주세요.');
+    return res.redirect(backPath);
+  }
+
+  if (!PASSWORD_REGEX.test(newPassword)) {
+    setFlash(req, 'error', '비밀번호는 영문/숫자 포함 8자 이상이어야 합니다.');
+    return res.redirect(backPath);
+  }
+
+  if (newPassword !== newPasswordConfirm) {
+    setFlash(req, 'error', '비밀번호 확인이 일치하지 않습니다.');
+    return res.redirect(backPath);
+  }
+
+  const nextHash = await bcrypt.hash(newPassword, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ? AND is_admin = 0').run(nextHash, targetId);
+
+  logAdminActivity(req, 'MEMBER_PASSWORD_RESET', `member:${targetId} password reset`);
+  setFlash(req, 'success', '회원 비밀번호가 재설정되었습니다.');
+  return res.redirect(backPath);
+}));
+
+app.post('/admin/member/:id/block', requireAdmin, (req, res) => {
+  const backPath = safeBackPath(req, '/admin/members?memberSection=active');
+  const targetId = Number(req.params.id);
+
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    setFlash(req, 'error', '유효하지 않은 회원입니다.');
+    return res.redirect(backPath);
+  }
+
+  const target = db
+    .prepare(
+      `
+        SELECT id, username, is_admin, is_blocked
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `
+    )
+    .get(targetId);
+
+  if (!target || Number(target.is_admin) === 1) {
+    setFlash(req, 'error', '회원 계정을 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  if (Number(target.is_blocked) === 1) {
+    setFlash(req, 'error', '이미 블락된 계정입니다.');
+    return res.redirect(backPath);
+  }
+
+  const blockReason = String(req.body.blockReason || '').trim().slice(0, 120);
+  db.prepare(
+    `
+      UPDATE users
+      SET
+        is_blocked = 1,
+        blocked_reason = ?,
+        blocked_at = datetime('now')
+      WHERE id = ? AND is_admin = 0
+    `
+  ).run(blockReason, targetId);
+
+  logAdminActivity(req, 'MEMBER_BLOCK', `member:${targetId} blocked${blockReason ? ` reason:${blockReason}` : ''}`);
+  setFlash(req, 'success', '회원 계정이 블락 처리되었습니다.');
+  return res.redirect(backPath);
+});
+
+app.post('/admin/member/:id/unblock', requireAdmin, (req, res) => {
+  const backPath = safeBackPath(req, '/admin/members?memberSection=blocked');
+  const targetId = Number(req.params.id);
+
+  if (!Number.isInteger(targetId) || targetId <= 0) {
+    setFlash(req, 'error', '유효하지 않은 회원입니다.');
+    return res.redirect(backPath);
+  }
+
+  const target = db
+    .prepare(
+      `
+        SELECT id, is_admin, is_blocked
+        FROM users
+        WHERE id = ?
+        LIMIT 1
+      `
+    )
+    .get(targetId);
+
+  if (!target || Number(target.is_admin) === 1) {
+    setFlash(req, 'error', '회원 계정을 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  if (Number(target.is_blocked) !== 1) {
+    setFlash(req, 'error', '블락 상태인 계정이 아닙니다.');
+    return res.redirect(backPath);
+  }
+
+  db.prepare(
+    `
+      UPDATE users
+      SET
+        is_blocked = 0,
+        blocked_reason = '',
+        blocked_at = NULL
+      WHERE id = ? AND is_admin = 0
+    `
+  ).run(targetId);
+
+  logAdminActivity(req, 'MEMBER_UNBLOCK', `member:${targetId} unblocked`);
+  setFlash(req, 'success', '회원 계정 블락이 해제되었습니다.');
   return res.redirect(backPath);
 });
 
