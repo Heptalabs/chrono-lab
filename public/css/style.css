@@ -1214,6 +1214,52 @@ body.theme-night .watermark-preview-canvas {
   white-space: nowrap;
 }
 
+.menu-manage-stack {
+  margin-top: 12px;
+  display: grid;
+  gap: 14px;
+}
+
+.menu-manage-note {
+  margin: 0;
+}
+
+.menu-manage-form {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--chip);
+  padding: 12px;
+}
+
+.menu-manage-submit {
+  justify-self: flex-start;
+  margin-top: 4px;
+}
+
+.menu-manage-list {
+  margin-top: 2px;
+}
+
+.menu-fields-grid {
+  margin-top: 12px;
+}
+
+.menu-field-head-row {
+  margin-bottom: 10px;
+}
+
+.menu-field-filter-row {
+  align-items: center;
+}
+
+.menu-field-filter-row .chip {
+  white-space: nowrap;
+}
+
+.menu-field-group-list {
+  margin-top: 2px;
+}
+
 .security-panel-grid {
   margin-top: 12px;
   display: grid;

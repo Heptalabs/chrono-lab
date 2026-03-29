@@ -1199,84 +1199,88 @@
     </div>
 
     <% if (menusTab === 'public') { %>
-      <form method="post" action="/admin/menu/add" class="form-grid">
-        <label><%= isEn ? 'Menu Label (KR)' : '메뉴명 (KR)' %>
-          <input type="text" name="labelKo" required />
-        </label>
-        <label><%= isEn ? 'Menu Label (EN)' : '메뉴명 (EN)' %>
-          <input type="text" name="labelEn" required />
-        </label>
-        <label><%= isEn ? 'Path (e.g. /event)' : '경로 (예: /event)' %>
-          <input type="text" name="path" required />
-        </label>
-        <button type="submit" class="chip dark"><%= isEn ? 'Add Menu' : '메뉴 추가' %></button>
-      </form>
+      <div class="menu-manage-stack">
+        <form method="post" action="/admin/menu/add" class="form-grid menu-manage-form">
+          <label><%= isEn ? 'Menu Label (KR)' : '메뉴명 (KR)' %>
+            <input type="text" name="labelKo" required />
+          </label>
+          <label><%= isEn ? 'Menu Label (EN)' : '메뉴명 (EN)' %>
+            <input type="text" name="labelEn" required />
+          </label>
+          <label><%= isEn ? 'Path (e.g. /event)' : '경로 (예: /event)' %>
+            <input type="text" name="path" required />
+          </label>
+          <button type="submit" class="chip dark menu-manage-submit"><%= isEn ? 'Add Menu' : '메뉴 추가' %></button>
+        </form>
 
-      <div class="admin-list">
-        <% publicMenus.forEach((menu) => { %>
-          <div class="admin-list-item">
-            <strong><%= menu.labelKo %> / <%= menu.labelEn %></strong>
-            <span><%= menu.path %></span>
-            <span class="muted-label"><%= menu.isHidden ? (isEn ? 'Hidden' : '숨김') : (isEn ? 'Visible' : '표시중') %></span>
-            <div class="admin-account-actions">
-              <form method="post" action="/admin/menu/toggle/<%= menu.id %>" class="inline-form">
-                <button type="submit" class="chip"><%= menu.isHidden ? (isEn ? 'Show' : '표시') : (isEn ? 'Hide' : '숨김') %></button>
-              </form>
-              <form method="post" action="/admin/menu/remove/<%= menu.id %>" class="inline-form">
-                <button type="submit" class="chip"><%= isEn ? 'Delete' : '삭제' %></button>
-              </form>
+        <div class="admin-list menu-manage-list">
+          <% publicMenus.forEach((menu) => { %>
+            <div class="admin-list-item">
+              <strong><%= menu.labelKo %> / <%= menu.labelEn %></strong>
+              <span><%= menu.path %></span>
+              <span class="muted-label"><%= menu.isHidden ? (isEn ? 'Hidden' : '숨김') : (isEn ? 'Visible' : '표시중') %></span>
+              <div class="admin-account-actions">
+                <form method="post" action="/admin/menu/toggle/<%= menu.id %>" class="inline-form">
+                  <button type="submit" class="chip"><%= menu.isHidden ? (isEn ? 'Show' : '표시') : (isEn ? 'Hide' : '숨김') %></button>
+                </form>
+                <form method="post" action="/admin/menu/remove/<%= menu.id %>" class="inline-form">
+                  <button type="submit" class="chip"><%= isEn ? 'Delete' : '삭제' %></button>
+                </form>
+              </div>
             </div>
-          </div>
-        <% }) %>
+          <% }) %>
+        </div>
       </div>
     <% } %>
 
     <% if (menusTab === 'groups') { %>
-      <p class="muted-label">
-        <%= isEn ? 'Add or remove shop top categories. Each category can have its own upload fields.' : '쇼핑몰 상위 분류를 추가/삭제할 수 있고, 분류별 업로드 항목은 별도 탭에서 관리합니다.' %>
-      </p>
-      <form method="post" action="/admin/product-group/add" class="form-grid">
-        <label><%= isEn ? 'Category Key (optional)' : '분류 키 (선택)' %>
-          <input type="text" name="key" placeholder="<%= isEn ? 'factory-plus' : 'factory-plus' %>" />
-        </label>
-        <label><%= isEn ? 'Category Name (KR)' : '분류명 (KR)' %>
-          <input type="text" name="labelKo" required />
-        </label>
-        <label><%= isEn ? 'Category Name (EN)' : '분류명 (EN)' %>
-          <input type="text" name="labelEn" required />
-        </label>
-        <label><%= isEn ? 'Default Field Template' : '기본 항목 템플릿' %>
-          <select name="templateType">
-            <option value="simple"><%= isEn ? 'Basic (Title + Detail)' : '기본형 (제목 + 상세설명)' %></option>
-            <option value="factory"><%= isEn ? 'Factory Spec Fields' : '공장제형 필드' %></option>
-          </select>
-        </label>
-        <button type="submit" class="chip dark"><%= isEn ? 'Add Category' : '분류 추가' %></button>
-      </form>
+      <div class="menu-manage-stack">
+        <p class="muted-label menu-manage-note">
+          <%= isEn ? 'Add or remove shop top categories. Each category can have its own upload fields.' : '쇼핑몰 상위 분류를 추가/삭제할 수 있고, 분류별 업로드 항목은 별도 탭에서 관리합니다.' %>
+        </p>
+        <form method="post" action="/admin/product-group/add" class="form-grid menu-manage-form">
+          <label><%= isEn ? 'Category Key (optional)' : '분류 키 (선택)' %>
+            <input type="text" name="key" placeholder="<%= isEn ? 'factory-plus' : 'factory-plus' %>" />
+          </label>
+          <label><%= isEn ? 'Category Name (KR)' : '분류명 (KR)' %>
+            <input type="text" name="labelKo" required />
+          </label>
+          <label><%= isEn ? 'Category Name (EN)' : '분류명 (EN)' %>
+            <input type="text" name="labelEn" required />
+          </label>
+          <label><%= isEn ? 'Default Field Template' : '기본 항목 템플릿' %>
+            <select name="templateType">
+              <option value="simple"><%= isEn ? 'Basic (Title + Detail)' : '기본형 (제목 + 상세설명)' %></option>
+              <option value="factory"><%= isEn ? 'Factory Spec Fields' : '공장제형 필드' %></option>
+            </select>
+          </label>
+          <button type="submit" class="chip dark menu-manage-submit"><%= isEn ? 'Add Category' : '분류 추가' %></button>
+        </form>
 
-      <div class="admin-list">
-        <% productGroupConfigList.forEach((group) => { %>
-          <div class="admin-list-item">
-            <strong><%= group.labelKo || group.key %> / <%= group.labelEn || group.key %></strong>
-            <span><%= isEn ? 'Key' : '키' %>: <code><%= group.key %></code></span>
-            <span class="muted-label"><%= isEn ? `${(group.customFields || []).length} fields configured` : `설정된 업로드 항목 ${(group.customFields || []).length}개` %></span>
-            <div class="admin-account-actions">
-              <% if (productGroupConfigList.length > 1) { %>
-                <form method="post" action="/admin/product-group/remove/<%= encodeURIComponent(group.key) %>" class="inline-form">
-                  <button type="submit" class="chip"><%= isEn ? 'Delete Category' : '분류 삭제' %></button>
-                </form>
-              <% } %>
+        <div class="admin-list menu-manage-list">
+          <% productGroupConfigList.forEach((group) => { %>
+            <div class="admin-list-item">
+              <strong><%= group.labelKo || group.key %> / <%= group.labelEn || group.key %></strong>
+              <span><%= isEn ? 'Key' : '키' %>: <code><%= group.key %></code></span>
+              <span class="muted-label"><%= isEn ? `${(group.customFields || []).length} fields configured` : `설정된 업로드 항목 ${(group.customFields || []).length}개` %></span>
+              <div class="admin-account-actions">
+                <% if (productGroupConfigList.length > 1) { %>
+                  <form method="post" action="/admin/product-group/remove/<%= encodeURIComponent(group.key) %>" class="inline-form">
+                    <button type="submit" class="chip"><%= isEn ? 'Delete Category' : '분류 삭제' %></button>
+                  </form>
+                <% } %>
+              </div>
             </div>
-          </div>
-        <% }) %>
+          <% }) %>
+        </div>
       </div>
     <% } %>
 
     <% if (menusTab === 'fields') { %>
-      <div class="admin-grid">
+      <div class="admin-grid menu-fields-grid">
         <section class="kpi-card">
           <h4><%= isEn ? 'Add Upload Field' : '업로드 항목 추가' %></h4>
-          <form method="post" action="/admin/product-group/field/add" class="form-grid">
+          <form method="post" action="/admin/product-group/field/add" class="form-grid menu-manage-form">
             <label><%= isEn ? 'Target Category' : '대상 분류' %>
               <select name="groupKey" required>
                 <% productGroupConfigList.forEach((group) => { %>
@@ -1304,15 +1308,39 @@
               <input type="checkbox" name="required" />
               <span><%= isEn ? 'Required field' : '필수 항목' %></span>
             </label>
-            <button type="submit" class="chip dark"><%= isEn ? 'Add Field' : '항목 추가' %></button>
+            <button type="submit" class="chip dark menu-manage-submit"><%= isEn ? 'Add Field' : '항목 추가' %></button>
           </form>
         </section>
 
         <section class="kpi-card">
-          <h4><%= isEn ? 'Category Field List' : '분류별 업로드 항목 목록' %></h4>
-          <div class="admin-list">
+          <div class="kpi-head-row menu-field-head-row">
+            <h4><%= isEn ? 'Category Field List' : '분류별 업로드 항목 목록' %></h4>
+            <%
+              const preferredFieldFilterKeys = ['공장제', '젠파츠', '현지중고'];
+              const preferredFieldFilterGroups = preferredFieldFilterKeys
+                .map((key) => productGroupConfigList.find((group) => group.key === key))
+                .filter(Boolean);
+              const restFieldFilterGroups = productGroupConfigList.filter(
+                (group) => !preferredFieldFilterGroups.some((preferredGroup) => preferredGroup.key === group.key)
+              );
+              const fallbackFieldFilterGroups =
+                preferredFieldFilterGroups.length > 0
+                  ? [...preferredFieldFilterGroups, ...restFieldFilterGroups]
+                  : productGroupConfigList;
+            %>
+            <% if (fallbackFieldFilterGroups.length > 0) { %>
+              <div class="chip-row menu-field-filter-row" data-menu-field-filter-wrap>
+                <% fallbackFieldFilterGroups.forEach((group, index) => { %>
+                  <button type="button" class="chip <%= index === 0 ? 'dark' : '' %>" data-menu-field-filter="<%= group.key %>">
+                    <%= group.labelKo || group.key %>
+                  </button>
+                <% }) %>
+              </div>
+            <% } %>
+          </div>
+          <div class="admin-list menu-field-group-list" data-menu-field-list>
             <% productGroupConfigList.forEach((group) => { %>
-              <details class="admin-list-item" open>
+              <details class="admin-list-item" open data-menu-field-group="<%= group.key %>">
                 <summary><strong><%= group.labelKo || group.key %> / <%= group.labelEn || group.key %></strong> <small>(<%= (group.customFields || []).length %>)</small></summary>
                 <div class="admin-list">
                   <% (group.customFields || []).forEach((field) => { %>
@@ -1359,6 +1387,38 @@
           </div>
         </section>
       </div>
+      <script>
+        (() => {
+          const wrap = document.querySelector('[data-menu-field-filter-wrap]');
+          const list = document.querySelector('[data-menu-field-list]');
+          if (!wrap || !list) return;
+
+          const buttons = Array.from(wrap.querySelectorAll('[data-menu-field-filter]'));
+          const groups = Array.from(list.querySelectorAll('[data-menu-field-group]'));
+          if (!buttons.length || !groups.length) return;
+
+          const applyFilter = (groupKey) => {
+            buttons.forEach((button) => {
+              const active = button.dataset.menuFieldFilter === groupKey;
+              button.classList.toggle('dark', active);
+            });
+            groups.forEach((groupNode) => {
+              groupNode.hidden = groupNode.dataset.menuFieldGroup !== groupKey;
+            });
+          };
+
+          const initialGroup = buttons[0].dataset.menuFieldFilter || '';
+          if (initialGroup) {
+            applyFilter(initialGroup);
+          }
+
+          buttons.forEach((button) => {
+            button.addEventListener('click', () => {
+              applyFilter(button.dataset.menuFieldFilter || '');
+            });
+          });
+        })();
+      </script>
     <% } %>
   </article>
   <% } %>
