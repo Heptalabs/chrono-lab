@@ -9,7 +9,8 @@
   };
 
   const stats = dashboardStats || {
-    users: { members: 0, admins: 0, total: 0 },
+    users: { active: 0, blocked: 0, total: 0 },
+    signupCounts: { today: 0, week: 0, month: 0, year: 0, total: 0 },
     memberVisits: { today: 0, week: 0, month: 0, year: 0, total: 0 },
     guestVisits: { today: 0, week: 0, month: 0, year: 0, total: 0 },
     totalVisits: { today: 0, week: 0, month: 0, year: 0, total: 0 },
@@ -49,10 +50,28 @@
 
     <div class="admin-dash-columns">
       <div class="admin-dash-stack">
-        <div class="kpi-card" data-dash-pair="top">
-          <h4><%= isEn ? 'Members' : '회원 수' %></h4>
-          <strong><%= stats.users.members %></strong>
-          <p class="muted-label"><%= isEn ? `Admins ${stats.users.admins} / Total ${stats.users.total}` : `어드민 ${stats.users.admins} / 전체 계정 ${stats.users.total}` %></p>
+        <div class="kpi-card" data-dash-pair="top" data-member-switch-root>
+          <div class="kpi-head-row">
+            <h4><%= isEn ? 'Members' : '회원 수' %></h4>
+            <div class="kpi-toggle-row" role="tablist" aria-label="<%= isEn ? 'member segment switch' : '회원 구분 전환' %>">
+              <button type="button" class="kpi-toggle-btn active" data-member-type="active"><%= isEn ? 'Member' : '회원' %></button>
+              <button type="button" class="kpi-toggle-btn" data-member-type="blocked"><%= isEn ? 'Blacklist' : '블랙리스트' %></button>
+            </div>
+          </div>
+          <strong data-member-value><%= stats.users.active %></strong>
+          <p class="muted-label" data-member-caption><%= isEn ? 'Active members count.' : '활성 회원 수입니다.' %></p>
+          <p class="muted-label"><%= isEn ? `Total members ${stats.users.total}` : `총 회원 ${stats.users.total}` %></p>
+        </div>
+
+        <div class="kpi-card">
+          <h4><%= isEn ? 'Signup Summary' : '회원가입 집계' %></h4>
+          <ul class="metric-list">
+            <li><span><%= isEn ? 'Today' : '오늘' %></span><strong><%= stats.signupCounts.today %></strong></li>
+            <li><span><%= isEn ? '7 Days' : '일주일' %></span><strong><%= stats.signupCounts.week %></strong></li>
+            <li><span><%= isEn ? '30 Days' : '한달' %></span><strong><%= stats.signupCounts.month %></strong></li>
+            <li><span><%= isEn ? '1 Year' : '1년' %></span><strong><%= stats.signupCounts.year %></strong></li>
+            <li><span><%= isEn ? 'Total' : '총 가입 회원' %></span><strong><%= stats.signupCounts.total %></strong></li>
+          </ul>
         </div>
 
         <div class="kpi-card" data-dash-pair="bottom" data-visit-switch-root>
@@ -130,6 +149,11 @@
       </div>
     </div>
 
+    <script id="member-kpi-payload" type="application/json"><%- JSON.stringify({
+      active: stats.users.active,
+      blocked: stats.users.blocked,
+      total: stats.users.total
+    }) %></script>
     <script id="visit-kpi-payload" type="application/json"><%- JSON.stringify({
       member: stats.memberVisits,
       guest: stats.guestVisits,
@@ -137,16 +161,52 @@
     }) %></script>
     <script>
       (() => {
+        const memberRoot = document.querySelector('[data-member-switch-root]');
+        const memberPayloadNode = document.getElementById('member-kpi-payload');
         const root = document.querySelector('[data-visit-switch-root]');
         const payloadNode = document.getElementById('visit-kpi-payload');
-        if (!root || !payloadNode) return;
+        if (!memberRoot || !memberPayloadNode || !root || !payloadNode) return;
 
+        let memberDataset = {};
         let dataset = {};
+        try {
+          memberDataset = JSON.parse(memberPayloadNode.textContent || '{}');
+        } catch {
+          memberDataset = {};
+        }
         try {
           dataset = JSON.parse(payloadNode.textContent || '{}');
         } catch {
           dataset = {};
         }
+
+        const memberLabelMap = {
+          active: <%- JSON.stringify(isEn ? 'Active members count.' : '활성 회원 수입니다.') %>,
+          blocked: <%- JSON.stringify(isEn ? 'Blocked members count.' : '블락 회원 수입니다.') %>
+        };
+
+        const memberButtons = Array.from(memberRoot.querySelectorAll('[data-member-type]'));
+        const memberValueNode = memberRoot.querySelector('[data-member-value]');
+        const memberCaptionNode = memberRoot.querySelector('[data-member-caption]');
+
+        const applyMemberType = (type) => {
+          const value =
+            type === 'blocked'
+              ? Number(memberDataset.blocked || 0)
+              : Number(memberDataset.active || 0);
+
+          if (memberValueNode) {
+            memberValueNode.textContent = value.toLocaleString();
+          }
+
+          if (memberCaptionNode) {
+            memberCaptionNode.textContent = memberLabelMap[type] || memberLabelMap.active;
+          }
+
+          memberButtons.forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.memberType === type);
+          });
+        };
 
         const labelMap = {
           member: <%- JSON.stringify(isEn ? 'Member visits summary.' : '회원 방문 기준 집계입니다.') %>,
@@ -177,6 +237,13 @@
           });
         };
 
+        memberButtons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            applyMemberType(btn.dataset.memberType || 'active');
+            syncPairHeights();
+          });
+        });
+
         buttons.forEach((btn) => {
           btn.addEventListener('click', () => {
             applyType(btn.dataset.visitType || 'member');
@@ -184,6 +251,7 @@
           });
         });
 
+        applyMemberType('active');
         applyType('member');
 
         const syncPairHeights = () => {
@@ -570,9 +638,9 @@
       </a>
     </div>
 
-    <form method="get" action="/admin/members" class="admin-filter-row">
+    <form method="get" action="/admin/members" class="admin-filter-row member-filter-row">
       <input type="hidden" name="memberSection" value="<%= memberFilters.section || 'active' %>" />
-      <label class="admin-filter-item">
+      <label class="admin-filter-item member-search-item">
         <span><%= isEn ? 'Search' : '검색어' %></span>
         <input
           type="text"
@@ -616,8 +684,8 @@
                   <button type="submit" class="chip dark"><%= isEn ? 'Unblock' : '블락해제' %></button>
                 </form>
               <% } else { %>
-                <form method="post" action="/admin/member/<%= memberItem.id %>/block" class="inline-form">
-                  <input type="hidden" name="blockReason" value="" />
+                <form method="post" action="/admin/member/<%= memberItem.id %>/block" class="inline-form" data-member-block-form>
+                  <input type="hidden" name="blockReason" value="" data-member-block-reason />
                   <button type="submit" class="chip"><%= isEn ? 'Block' : '블락' %></button>
                 </form>
               <% } %>
@@ -649,12 +717,7 @@
               <button type="submit" class="chip"><%= isEn ? 'Reset Password' : '비밀번호 재설정' %></button>
             </form>
 
-            <% if (!memberItem.is_blocked) { %>
-              <form method="post" action="/admin/member/<%= memberItem.id %>/block" class="form-grid compact">
-                <label><span><%= isEn ? 'Block Reason (optional)' : '블락 사유 (선택)' %></span><input type="text" name="blockReason" maxlength="120" /></label>
-                <button type="submit" class="chip"><%= isEn ? 'Block Account' : '계정 블락' %></button>
-              </form>
-            <% } else { %>
+            <% if (memberItem.is_blocked) { %>
               <p class="muted-label"><%= isEn ? 'Block Reason' : '블락 사유' %>: <%= memberItem.blocked_reason || (isEn ? 'No reason' : '사유 없음') %></p>
             <% } %>
           </div>
@@ -712,6 +775,23 @@
               btn.setAttribute('aria-expanded', 'true');
               btn.textContent = labels.close;
             }
+          });
+        });
+
+        const blockForms = Array.from(document.querySelectorAll('form[data-member-block-form]'));
+        blockForms.forEach((form) => {
+          form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const reasonInput = form.querySelector('[data-member-block-reason]');
+            const promptLabel = <%- JSON.stringify(isEn ? 'Enter block reason (optional):' : '블락 사유를 입력해 주세요. (선택)') %>;
+            const reasonRaw = window.prompt(promptLabel, reasonInput ? reasonInput.value : '');
+            if (reasonRaw === null) {
+              return;
+            }
+            if (reasonInput) {
+              reasonInput.value = String(reasonRaw).trim().slice(0, 120);
+            }
+            form.submit();
           });
         });
       })();

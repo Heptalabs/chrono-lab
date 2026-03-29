@@ -1351,6 +1351,11 @@ textarea {
   min-width: 140px;
 }
 
+.member-filter-row .member-search-item input {
+  min-width: 360px;
+  width: min(56vw, 560px);
+}
+
 .admin-filter-actions {
   display: inline-flex;
   align-items: center;
@@ -1481,6 +1486,11 @@ td {
 
   .section-head .inline-search input {
     min-width: 0;
+  }
+
+  .member-filter-row .member-search-item input {
+    min-width: 0;
+    width: 100%;
   }
 }
 

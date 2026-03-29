@@ -1982,15 +1982,50 @@ function getVisitRangeSummary(baseDate, columnName) {
   };
 }
 
+function getMemberSignupRangeSummary(baseDate) {
+  const sumRange = (days) => {
+    const offsetDays = Math.max(days - 1, 0);
+    const row = db
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM users
+          WHERE is_admin = 0
+            AND date(datetime(created_at, '+9 hours')) BETWEEN date(?, '-${offsetDays} day') AND date(?)
+        `
+      )
+      .get(baseDate, baseDate);
+    return Number(row?.count || 0);
+  };
+
+  const totalRow = db
+    .prepare(
+      `
+        SELECT COUNT(*) AS count
+        FROM users
+        WHERE is_admin = 0
+      `
+    )
+    .get();
+
+  return {
+    today: sumRange(1),
+    week: sumRange(7),
+    month: sumRange(30),
+    year: sumRange(365),
+    total: Number(totalRow?.count || 0)
+  };
+}
+
 function buildAdminDashboardStats() {
   const today = toKstDate();
   const usersRow = db
     .prepare(
       `
         SELECT
-          SUM(CASE WHEN is_admin = 0 THEN 1 ELSE 0 END) AS member_count,
-          SUM(CASE WHEN is_admin = 1 THEN 1 ELSE 0 END) AS admin_count,
-          COUNT(*) AS total_count
+          SUM(CASE WHEN is_admin = 0 AND is_blocked = 0 THEN 1 ELSE 0 END) AS active_member_count,
+          SUM(CASE WHEN is_admin = 0 AND is_blocked = 1 THEN 1 ELSE 0 END) AS blocked_member_count,
+          SUM(CASE WHEN is_admin = 0 THEN 1 ELSE 0 END) AS total_member_count
         FROM users
       `
     )
@@ -2090,10 +2125,11 @@ function buildAdminDashboardStats() {
 
   return {
     users: {
-      members: Number(usersRow?.member_count || 0),
-      admins: Number(usersRow?.admin_count || 0),
-      total: Number(usersRow?.total_count || 0)
+      active: Number(usersRow?.active_member_count || 0),
+      blocked: Number(usersRow?.blocked_member_count || 0),
+      total: Number(usersRow?.total_member_count || 0)
     },
+    signupCounts: getMemberSignupRangeSummary(today),
     memberVisits: getVisitRangeSummary(today, 'member_visit_count'),
     guestVisits: getVisitRangeSummary(today, 'guest_visit_count'),
     totalVisits: getVisitRangeSummary(today, 'visit_count'),
