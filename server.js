@@ -927,6 +927,16 @@ function getFlash(req) {
   return flash;
 }
 
+function setPopupFlash(req, type, message) {
+  req.session.popupFlash = { type, message };
+}
+
+function getPopupFlash(req) {
+  const popupFlash = req.session.popupFlash || null;
+  delete req.session.popupFlash;
+  return popupFlash;
+}
+
 function fileUrl(file) {
   if (!file) {
     return '';
@@ -1825,6 +1835,7 @@ app.use((req, res, next) => {
     isPrimaryAdmin: Boolean(req.user?.isPrimaryAdmin),
     isAdminPage: isAdminPage && Boolean(req.user?.isAdmin),
     flash: getFlash(req),
+    popupFlash: getPopupFlash(req),
     formatPrice,
     menus,
     settings: {
@@ -5195,7 +5206,7 @@ app.post('/admin/product/create', requireAdmin, upload.array('images', 20), asyn
     });
   }
 
-  setFlash(req, 'success', '상품이 등록되었습니다.');
+  setPopupFlash(req, 'success', '상품이 등록되었습니다.');
   res.redirect(backPath);
 }));
 

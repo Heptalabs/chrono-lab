@@ -1,12 +1,19 @@
 (function () {
-  function closePopup() {
+  function closeNoticePopup() {
     var popup = document.getElementById('noticePopup');
     if (popup) {
       popup.classList.add('hidden');
     }
   }
 
-  function initPopup() {
+  function closeFlashPopup() {
+    var popup = document.getElementById('flashPopup');
+    if (popup) {
+      popup.classList.add('hidden');
+    }
+  }
+
+  function initNoticePopup() {
     var popup = document.getElementById('noticePopup');
     if (!popup) {
       return;
@@ -29,7 +36,7 @@
       var actionTarget = event.target.closest('[data-popup-action]');
       if (!actionTarget) {
         if (event.target === popup) {
-          closePopup();
+          closeNoticePopup();
         }
         return;
       }
@@ -38,12 +45,32 @@
       if (action === 'hide7') {
         var sevenDays = 1000 * 60 * 60 * 24 * 7;
         localStorage.setItem(key, String(Date.now() + sevenDays));
-        closePopup();
+        closeNoticePopup();
       }
 
       if (action === 'close' || action === 'confirm') {
-        closePopup();
+        closeNoticePopup();
       }
+    });
+  }
+
+  function initFlashPopup() {
+    var popup = document.getElementById('flashPopup');
+    if (!popup) {
+      return;
+    }
+
+    popup.classList.remove('hidden');
+    popup.addEventListener('click', function (event) {
+      var actionTarget = event.target.closest('[data-flash-popup-action]');
+      if (!actionTarget) {
+        if (event.target === popup) {
+          closeFlashPopup();
+        }
+        return;
+      }
+
+      closeFlashPopup();
     });
   }
 
@@ -133,7 +160,8 @@
   }
 
   function initApp() {
-    initPopup();
+    initNoticePopup();
+    initFlashPopup();
     initProductGallery();
   }
 

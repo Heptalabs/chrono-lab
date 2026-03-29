@@ -1384,6 +1384,10 @@
           <input type="file" name="images" accept="image/*" multiple />
           <small class="muted-label"><%= isEn ? 'All uploaded images are automatically watermarked with "Chrono Lab".' : '업로드된 모든 이미지는 자동으로 "Chrono Lab" 워터마크가 적용됩니다.' %></small>
         </label>
+        <div class="watermark-preview-wrap" data-image-watermark-preview hidden>
+          <p class="muted-label"><%= isEn ? 'Preview with watermark applied before upload' : '업로드 전 워터마크 적용 미리보기' %></p>
+          <div class="watermark-preview-grid" data-image-watermark-preview-grid></div>
+        </div>
 
         <% if (editingItem && editingItem.imageList && editingItem.imageList.length > 0) { %>
           <div class="admin-field-chip-row">
@@ -1443,6 +1447,96 @@
           const buttons = Array.from(form.querySelectorAll('[data-admin-product-group-btn]'));
           const fieldBoxes = Array.from(form.querySelectorAll('[data-admin-product-fields]'));
           const fieldInputs = Array.from(form.querySelectorAll('[data-admin-field-input]'));
+          const imageInput = form.querySelector('input[name="images"]');
+          const previewWrap = form.querySelector('[data-image-watermark-preview]');
+          const previewGrid = form.querySelector('[data-image-watermark-preview-grid]');
+
+          const clearWatermarkPreview = () => {
+            if (!previewGrid) return;
+            previewGrid.innerHTML = '';
+            if (previewWrap) {
+              previewWrap.hidden = true;
+            }
+          };
+
+          const drawWatermark = (ctx, width, height) => {
+            const text = 'Chrono Lab';
+            const fontSize = Math.max(10, Math.round(width * 0.045));
+            ctx.save();
+            ctx.font = `600 ${fontSize}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+            ctx.lineWidth = Math.max(1, Math.round(fontSize * 0.06));
+
+            const textWidth = ctx.measureText(text).width || fontSize * 5;
+            const step = textWidth + Math.max(24, Math.round(fontSize * 1.8));
+            const rows = [height * 0.25, height * 0.5, height * 0.75];
+
+            rows.forEach((y) => {
+              for (let x = -textWidth; x < width + textWidth; x += step) {
+                ctx.strokeText(text, x, y);
+                ctx.fillText(text, x, y);
+              }
+            });
+
+            ctx.restore();
+          };
+
+          const appendWatermarkPreview = (file) => {
+            if (!previewGrid) return;
+            const blobUrl = URL.createObjectURL(file);
+            const image = new Image();
+
+            image.onload = () => {
+              const maxWidth = 480;
+              const maxHeight = 360;
+              const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height);
+              const width = Math.max(1, Math.round(image.width * scale));
+              const height = Math.max(1, Math.round(image.height * scale));
+
+              const item = document.createElement('div');
+              item.className = 'watermark-preview-item';
+
+              const canvas = document.createElement('canvas');
+              canvas.className = 'watermark-preview-canvas';
+              canvas.width = width;
+              canvas.height = height;
+
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(image, 0, 0, width, height);
+                drawWatermark(ctx, width, height);
+              }
+
+              const name = document.createElement('span');
+              name.className = 'watermark-preview-name';
+              name.textContent = file.name || 'image';
+
+              item.appendChild(canvas);
+              item.appendChild(name);
+              previewGrid.appendChild(item);
+
+              URL.revokeObjectURL(blobUrl);
+            };
+
+            image.onerror = () => {
+              URL.revokeObjectURL(blobUrl);
+            };
+
+            image.src = blobUrl;
+          };
+
+          const refreshWatermarkPreview = () => {
+            if (!imageInput || !previewWrap || !previewGrid) return;
+            clearWatermarkPreview();
+            const files = Array.from(imageInput.files || []).filter((file) =>
+              typeof file.type === 'string' && file.type.startsWith('image/')
+            );
+            if (!files.length) return;
+            previewWrap.hidden = false;
+            files.forEach((file) => appendWatermarkPreview(file));
+          };
 
           const applyGroup = (groupKey) => {
             if (hiddenGroupInput) {
@@ -1481,6 +1575,11 @@
               applyGroup(button.dataset.adminProductGroupBtn || '');
             });
           });
+
+          if (imageInput) {
+            imageInput.addEventListener('change', refreshWatermarkPreview);
+            refreshWatermarkPreview();
+          }
         })();
       </script>
     <% } %>
