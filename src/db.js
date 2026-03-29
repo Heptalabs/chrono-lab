@@ -18,7 +18,22 @@ export const DEFAULT_PRODUCT_GROUP_CONFIGS = [
     labelKo: '공장제',
     labelEn: 'Factory',
     mode: 'factory',
-    customFields: []
+    customFields: [
+      { key: 'brand', labelKo: '브랜드', labelEn: 'Brand', type: 'text', required: true },
+      { key: 'model', labelKo: '모델명', labelEn: 'Model', type: 'text', required: true },
+      { key: 'sub_model', labelKo: '세부모델명', labelEn: 'Sub Model', type: 'text', required: true },
+      { key: 'reference', labelKo: '레퍼런스', labelEn: 'Reference', type: 'text', required: false },
+      { key: 'factory_name', labelKo: '공장', labelEn: 'Factory', type: 'text', required: false },
+      { key: 'version_name', labelKo: '버전', labelEn: 'Version', type: 'text', required: false },
+      { key: 'movement', labelKo: '무브먼트', labelEn: 'Movement', type: 'text', required: false },
+      { key: 'case_size', labelKo: '케이스사이즈', labelEn: 'Case Size', type: 'text', required: false },
+      { key: 'dial_color', labelKo: '다이얼 색', labelEn: 'Dial Color', type: 'text', required: false },
+      { key: 'case_material', labelKo: '케이스 재질', labelEn: 'Case Material', type: 'text', required: false },
+      { key: 'strap_material', labelKo: '브레이슬릿/스트랩 재질', labelEn: 'Bracelet/Strap Material', type: 'text', required: false },
+      { key: 'features', labelKo: '특징', labelEn: 'Features', type: 'textarea', required: false },
+      { key: 'price', labelKo: '가격', labelEn: 'Price', type: 'number', required: true },
+      { key: 'shipping_period', labelKo: '배송기간', labelEn: 'Shipping Period', type: 'text', required: false }
+    ]
   },
   {
     key: '젠파츠',
@@ -27,7 +42,7 @@ export const DEFAULT_PRODUCT_GROUP_CONFIGS = [
     mode: 'simple',
     customFields: [
       { key: 'title', labelKo: '제목', labelEn: 'Title', type: 'text', required: true },
-      { key: 'summary', labelKo: '간략 설명', labelEn: 'Summary', type: 'textarea', required: true }
+      { key: 'detailed_description', labelKo: '상세설명', labelEn: 'Detailed Description', type: 'textarea', required: true }
     ]
   },
   {
@@ -37,7 +52,7 @@ export const DEFAULT_PRODUCT_GROUP_CONFIGS = [
     mode: 'simple',
     customFields: [
       { key: 'title', labelKo: '제목', labelEn: 'Title', type: 'text', required: true },
-      { key: 'summary', labelKo: '간략 설명', labelEn: 'Summary', type: 'textarea', required: true }
+      { key: 'detailed_description', labelKo: '상세설명', labelEn: 'Detailed Description', type: 'textarea', required: true }
     ]
   }
 ];

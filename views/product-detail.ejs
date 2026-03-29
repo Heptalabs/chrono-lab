@@ -58,7 +58,7 @@
     </h3>
     <p class="muted-label"><%= productGroupLabel || product.category_group %></p>
 
-    <% if ((productGroupConfig && productGroupConfig.mode === 'factory') || product.category_group === '공장제') { %>
+    <% if (isFactoryLikeProduct) { %>
       <div class="spec-grid">
         <span>Reference: <strong><%= product.reference || '-' %></strong></span>
         <span>Factory: <strong><%= product.factory_name || '-' %></strong></span>
@@ -74,7 +74,7 @@
       <a href="/shop/item/<%= product.id %>/purchase" class="cta-main full"><%= isEn ? 'Go to Purchase' : '구매하기' %></a>
     <% } else { %>
       <div class="spec-grid">
-        <span><%= isEn ? 'Summary' : '간략 설명' %>: <strong><%= productDisplay?.summary || '-' %></strong></span>
+        <span><%= isEn ? 'Detailed Description' : '상세설명' %>: <strong><%= productDisplay?.summary || '-' %></strong></span>
         <% (productDisplay?.customPairs || []).forEach((field) => { %>
           <span><%= isEn ? (field.labelEn || field.labelKo || field.key) : (field.labelKo || field.labelEn || field.key) %>: <strong><%= field.value %></strong></span>
         <% }) %>
