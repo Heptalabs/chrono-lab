@@ -63,14 +63,14 @@ const FUNNEL_EVENT = Object.freeze({
 const ADMIN_MENUS = Object.freeze([
   { id: 'admin-dashboard', labelKo: '대시보드', labelEn: 'Dashboard', path: '/admin/dashboard' },
   { id: 'admin-security', labelKo: '보안', labelEn: 'Security', path: '/admin/security' },
-  { id: 'admin-members', labelKo: '회원관리', labelEn: 'Members', path: '/admin/members' },
   { id: 'admin-site', labelKo: '사이트설정', labelEn: 'Site', path: '/admin/site' },
   { id: 'admin-menus', labelKo: '메뉴관리', labelEn: 'Menus', path: '/admin/menus' },
+  { id: 'admin-members', labelKo: '회원관리', labelEn: 'Members', path: '/admin/members' },
   { id: 'admin-products', labelKo: '상품관리', labelEn: 'Products', path: '/admin/products' },
+  { id: 'admin-orders', labelKo: '주문관리', labelEn: 'Orders', path: '/admin/orders' },
   { id: 'admin-notices', labelKo: '공지사항', labelEn: 'Notices', path: '/admin/notices' },
   { id: 'admin-news', labelKo: '뉴스', labelEn: 'News', path: '/admin/news' },
   { id: 'admin-qc', labelKo: 'QC', labelEn: 'QC', path: '/admin/qc' },
-  { id: 'admin-orders', labelKo: '주문관리', labelEn: 'Orders', path: '/admin/orders' },
   { id: 'admin-inquiries', labelKo: '문의답변', labelEn: 'Inquiries', path: '/admin/inquiries' }
 ]);
 
