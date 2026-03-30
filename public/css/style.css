@@ -1675,6 +1675,37 @@ td {
   line-height: 1.45;
 }
 
+.product-list-table th,
+.product-list-table td {
+  vertical-align: middle;
+}
+
+.product-list-table th:nth-child(1),
+.product-list-table th:nth-child(2),
+.product-list-table th:nth-child(4),
+.product-list-table th:nth-child(5),
+.product-list-table th:nth-child(6),
+.product-list-table td:nth-child(1),
+.product-list-table td:nth-child(2),
+.product-list-table td:nth-child(4),
+.product-list-table td:nth-child(5),
+.product-list-table td:nth-child(6) {
+  text-align: center;
+}
+
+.product-list-table td:nth-child(3) {
+  min-width: 280px;
+}
+
+.product-list-table td:nth-child(6) {
+  min-width: 240px;
+}
+
+.product-list-table .admin-account-actions {
+  margin-left: 0;
+  justify-content: center;
+}
+
 .popup-backdrop {
   position: fixed;
   inset: 0;
