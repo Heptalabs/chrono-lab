@@ -107,6 +107,8 @@ const defaultSettings = {
   backgroundValue: '#f7f7f8',
   menus: JSON.stringify(defaultMenus),
   bankAccountInfo: '입금계좌: 은행명 000-0000-0000 (예금주: Chrono Lab)',
+  signupBonusPoints: '0',
+  purchasePointRate: '0',
   contactInfo: '고객센터: 010-0000-0000 / 카카오톡: @chronolab',
   businessInfo: '상호: Chrono Lab | 대표: Chrono Team | 사업자번호: 000-00-00000',
   languageDefault: 'ko',
@@ -309,6 +311,15 @@ function ensureUserMemberProfileColumns() {
   addColumnIfMissing('default_address', "default_address TEXT NOT NULL DEFAULT ''");
 }
 
+function ensureUserPointColumns() {
+  const columns = db.prepare('PRAGMA table_info(users)').all();
+  const hasRewardPoints = columns.some((column) => column.name === 'reward_points');
+
+  if (!hasRewardPoints) {
+    db.prepare('ALTER TABLE users ADD COLUMN reward_points INTEGER NOT NULL DEFAULT 0').run();
+  }
+}
+
 function ensureUserBlockColumns() {
   const columns = db.prepare('PRAGMA table_info(users)').all();
   const columnNames = new Set(columns.map((column) => column.name));
@@ -353,6 +364,21 @@ function ensureOrdersTrackingColumns() {
   addColumnIfMissing('ready_to_ship_at', 'ready_to_ship_at TEXT');
   addColumnIfMissing('shipping_started_at', 'shipping_started_at TEXT');
   addColumnIfMissing('delivered_at', 'delivered_at TEXT');
+}
+
+function ensureOrdersPointColumns() {
+  const columns = db.prepare('PRAGMA table_info(orders)').all();
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  const addColumnIfMissing = (name, ddl) => {
+    if (!columnNames.has(name)) {
+      db.prepare(`ALTER TABLE orders ADD COLUMN ${ddl}`).run();
+      columnNames.add(name);
+    }
+  };
+
+  addColumnIfMissing('awarded_points', 'awarded_points INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing('points_awarded_at', 'points_awarded_at TEXT');
 }
 
 function ensureDailyVisitSplitColumns() {
@@ -968,6 +994,7 @@ export function initDb() {
       phone TEXT NOT NULL DEFAULT '',
       customs_clearance_no TEXT NOT NULL DEFAULT '',
       default_address TEXT NOT NULL DEFAULT '',
+      reward_points INTEGER NOT NULL DEFAULT 0,
       password_hash TEXT NOT NULL,
       agreed_terms INTEGER NOT NULL DEFAULT 1,
       is_admin INTEGER NOT NULL DEFAULT 0,
@@ -1033,6 +1060,8 @@ export function initDb() {
       ready_to_ship_at TEXT,
       shipping_started_at TEXT,
       delivered_at TEXT,
+      awarded_points INTEGER NOT NULL DEFAULT 0,
+      points_awarded_at TEXT,
       created_by_user_id INTEGER,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
@@ -1110,9 +1139,11 @@ export function initDb() {
   ensureProductsExtraFieldsColumn();
   ensureUserAdminProfileColumns();
   ensureUserMemberProfileColumns();
+  ensureUserPointColumns();
   ensureUserBlockColumns();
   ensureOrdersCustomsColumn();
   ensureOrdersTrackingColumns();
+  ensureOrdersPointColumns();
   ensureDailyVisitSplitColumns();
   ensureContentVisibilityColumns();
   ensureDailyFunnelEventsTable();

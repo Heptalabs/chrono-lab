@@ -1205,6 +1205,27 @@
         <textarea name="bankAccountInfo" rows="2"><%= settings.bankAccountInfo %></textarea>
       </label>
 
+      <label><%= isEn ? 'Signup Bonus Points (1 point = 1 KRW)' : '가입 보너스 포인트 (1포인트 = 1원)' %>
+        <input
+          type="number"
+          name="signupBonusPoints"
+          min="0"
+          step="1"
+          value="<%= Number(settings.signupBonusPoints || 0) %>"
+        />
+      </label>
+
+      <label><%= isEn ? 'Purchase Point Rate (%)' : '구매 적립률 (%)' %>
+        <input
+          type="number"
+          name="purchasePointRate"
+          min="0"
+          max="100"
+          step="0.01"
+          value="<%= Number(settings.purchasePointRate || 0) %>"
+        />
+      </label>
+
       <label><%= isEn ? 'Menu JSON (Advanced)' : '메뉴 JSON (고급)' %>
         <textarea name="menusJson" rows="8"><%= settings.menusJson %></textarea>
       </label>

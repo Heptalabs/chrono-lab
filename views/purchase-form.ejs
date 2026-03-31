@@ -1,4 +1,7 @@
 <%- include('partials/layout-start') %>
+<% const isEn = ctx.lang === 'en'; %>
+<% const pointRate = Number(purchasePointRate || 0); %>
+<% const pointAmount = Number(expectedPoints || 0); %>
 
 <section class="block-card narrow">
   <h2><%= ctx.lang === 'en' ? 'Purchase Request' : '구매 신청' %></h2>
@@ -7,40 +10,47 @@
   <% } %>
 
   <div class="line-list-box">
-    <p><%= ctx.lang === 'en' ? 'Product' : '상품' %>: <strong><%= product.brand %> <%= product.model %> <%= product.sub_model %></strong></p>
-    <p><%= ctx.lang === 'en' ? 'Price' : '가격' %>: <strong>₩<%= ctx.formatPrice(product.price) %></strong></p>
-    <p><%= ctx.lang === 'en' ? 'Shipping' : '배송기간' %>: <strong><%= product.shipping_period || '-' %></strong></p>
+    <p><%= isEn ? 'Product' : '상품' %>: <strong><%= product.brand %> <%= product.model %> <%= product.sub_model %></strong></p>
+    <p><%= isEn ? 'Price' : '가격' %>: <strong>₩<%= ctx.formatPrice(product.price) %></strong></p>
+    <p><%= isEn ? 'Shipping' : '배송기간' %>: <strong><%= product.shipping_period || '-' %></strong></p>
+    <p>
+      <%= isEn ? 'Reward Points' : '적립 포인트' %>:
+      <strong>
+        <%= pointRate > 0 ? `${pointRate}% (${ctx.formatPrice(pointAmount)}P)` : (isEn ? 'Not set' : '미설정') %>
+      </strong>
+      <small class="muted-label"><%= isEn ? '(credited after payment confirmation)' : '(입금확인 후 적립)' %></small>
+    </p>
   </div>
 
   <form method="post" action="/shop/item/<%= product.id %>/purchase" class="form-grid">
-    <label><%= ctx.lang === 'en' ? 'Name' : '이름' %>
+    <label><%= isEn ? 'Name' : '이름' %>
       <input type="text" name="buyerName" value="<%= formData.buyerName || '' %>" required />
       <small class="strong-warning">
-        <%= ctx.lang === 'en' ? 'Transfer must be made with this exact name.' : '반드시 이 이름으로 입금해 주세요.' %>
+        <%= isEn ? 'Transfer must be made with this exact name.' : '반드시 이 이름으로 입금해 주세요.' %>
       </small>
     </label>
 
-    <label><%= ctx.lang === 'en' ? 'Contact' : '연락처' %>
+    <label><%= isEn ? 'Contact' : '연락처' %>
       <input type="text" name="buyerContact" value="<%= formData.buyerContact || '' %>" required />
     </label>
 
-    <label><%= ctx.lang === 'en' ? 'Customs Clearance No.' : '통관번호' %>
+    <label><%= isEn ? 'Customs Clearance No.' : '통관번호' %>
       <input type="text" name="customsClearanceNo" value="<%= formData.customsClearanceNo || '' %>" required />
     </label>
 
-    <label><%= ctx.lang === 'en' ? 'Address' : '주소' %>
+    <label><%= isEn ? 'Address' : '주소' %>
       <textarea name="buyerAddress" rows="3" required><%= formData.buyerAddress || '' %></textarea>
     </label>
 
-    <label><%= ctx.lang === 'en' ? 'Quantity' : '수량' %>
+    <label><%= isEn ? 'Quantity' : '수량' %>
       <input type="number" name="quantity" min="1" value="<%= formData.quantity || 1 %>" required />
     </label>
 
-    <button type="submit" class="cta-main full"><%= ctx.lang === 'en' ? 'Submit Purchase' : '구매 신청하기' %></button>
+    <button type="submit" class="cta-main full"><%= isEn ? 'Submit Purchase' : '구매 신청하기' %></button>
   </form>
 
   <div class="notice-box">
-    <h4><%= ctx.lang === 'en' ? 'Bank Transfer Guide' : '계좌이체 안내' %></h4>
+    <h4><%= isEn ? 'Bank Transfer Guide' : '계좌이체 안내' %></h4>
     <p><%= ctx.settings.bankAccountInfo %></p>
   </div>
 </section>

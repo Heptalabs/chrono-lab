@@ -22,6 +22,13 @@
         <span><%= isEn ? 'I agree to the terms.' : '약관에 동의합니다.' %></span>
       </label>
       <button type="submit" class="cta-main"><%= isEn ? 'Sign up' : '회원가입' %></button>
+      <% if (Number(ctx.settings.signupBonusPoints || 0) > 0) { %>
+        <small class="muted-label">
+          <%= isEn ? 'Signup bonus' : '가입 보너스' %>:
+          <strong><%= ctx.formatPrice(ctx.settings.signupBonusPoints) %>P</strong>
+          (<%= isEn ? '1 point = 1 KRW' : '1포인트 = 1원' %>)
+        </small>
+      <% } %>
     </form>
     <p class="muted-label"><%= isEn ? 'Already have an account?' : '이미 계정이 있나요?' %> <a href="/login"><%= isEn ? 'Login' : '로그인' %></a></p>
   </div>

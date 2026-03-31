@@ -8,7 +8,11 @@
 <section class="block-card">
   <div class="section-head">
     <h2><%= isEn ? 'My Page' : '마이페이지' %></h2>
-    <small class="muted-label"><%= isEn ? 'Signed in as' : '로그인 계정' %>: <strong><%= profile.username || (ctx.currentUser && ctx.currentUser.username) || '-' %></strong></small>
+    <small class="muted-label">
+      <%= isEn ? 'Signed in as' : '로그인 계정' %>: <strong><%= profile.username || (ctx.currentUser && ctx.currentUser.username) || '-' %></strong>
+      |
+      <%= isEn ? 'Points' : '보유 포인트' %>: <strong><%= ctx.formatPrice(profile.rewardPoints || 0) %>P</strong>
+    </small>
   </div>
 
   <div class="chip-row mypage-tab-row">
@@ -107,6 +111,7 @@
             <th><%= isEn ? 'Product' : '상품' %></th>
             <th><%= isEn ? 'My Info' : '주문자 정보' %></th>
             <th><%= isEn ? 'Status' : '상태' %></th>
+            <th><%= isEn ? 'Points' : '적립포인트' %></th>
             <th><%= isEn ? 'Tracking' : '송장' %></th>
             <th><%= isEn ? 'Requested' : '신청일' %></th>
           </tr>
@@ -114,7 +119,7 @@
         <tbody>
           <% if (orders.length === 0) { %>
             <tr>
-              <td colspan="7"><%= isEn ? 'No order history found.' : '조건에 맞는 주문 내역이 없습니다.' %></td>
+              <td colspan="8"><%= isEn ? 'No order history found.' : '조건에 맞는 주문 내역이 없습니다.' %></td>
             </tr>
           <% } %>
           <% orders.forEach((item) => { %>
@@ -140,6 +145,7 @@
                   <small class="muted-label"><%= isEn ? 'Updated' : '최근 변경' %>: <%= item.latest_event_at.slice(0, 16) %></small>
                 <% } %>
               </td>
+              <td><%= Number(item.awarded_points || 0) > 0 ? `${ctx.formatPrice(item.awarded_points)}P` : '-' %></td>
               <td>
                 <% if (item.tracking_number) { %>
                   <small><strong><%= item.tracking_carrier_label || item.tracking_carrier || '-' %></strong></small><br />

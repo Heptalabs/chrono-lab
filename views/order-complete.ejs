@@ -1,5 +1,9 @@
 <%- include('partials/layout-start') %>
 <% const isEn = ctx.lang === 'en'; %>
+<% const pointRate = Number(purchasePointRate || 0); %>
+<% const pointAwarded = Number(awardedPoints || 0); %>
+<% const pointExpected = Number(expectedPoints || 0); %>
+<% const memberOrder = Boolean(isMemberOrder); %>
 
 <section class="block-card narrow">
   <h2><%= ctx.t('orderComplete') %></h2>
@@ -13,6 +17,27 @@
     <p><%= isEn ? 'Address' : '주소' %>: <strong><%= order.buyer_address %></strong></p>
     <p><%= isEn ? 'Depositor Name' : '입금자명' %>: <strong><%= order.bank_depositor_name %></strong></p>
     <p><%= isEn ? 'Total Amount' : '총 금액' %>: <strong>₩<%= ctx.formatPrice(order.total_price) %></strong></p>
+    <p>
+      <%= isEn ? 'Reward Points' : '적립 포인트' %>:
+      <strong>
+        <% if (!memberOrder) { %>
+          <%= isEn ? 'Members only' : '회원 전용' %>
+        <% } else if (pointAwarded > 0) { %>
+          <%= ctx.formatPrice(pointAwarded) %>P
+        <% } else if (pointRate > 0) { %>
+          <%= ctx.formatPrice(pointExpected) %>P
+        <% } else { %>
+          <%= isEn ? 'Not set' : '미설정' %>
+        <% } %>
+      </strong>
+      <small class="muted-label">
+        <% if (!memberOrder) { %>
+          <%= isEn ? '(guest order)' : '(비회원 주문)' %>
+        <% } else { %>
+          <%= pointAwarded > 0 ? (isEn ? '(credited)' : '(적립완료)') : (isEn ? '(credited after payment confirmation)' : '(입금확인 후 적립)') %>
+        <% } %>
+      </small>
+    </p>
     <p><%= isEn ? 'Order Status' : '주문상태' %>: <strong><%= statusMeta.label %></strong> <%= statusMeta.detail ? `(${statusMeta.detail})` : '' %></p>
   </div>
 

@@ -1679,6 +1679,42 @@ function parsePositiveInt(rawValue, fallback = 1) {
   return parsed;
 }
 
+function parseNonNegativeInt(rawValue, fallback = 0) {
+  const parsed = Number.parseInt(String(rawValue ?? ''), 10);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
+function parsePointRate(rawValue, fallback = 0) {
+  const parsed = Number.parseFloat(String(rawValue ?? '').replace(/,/g, '').trim());
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  if (parsed > 100) {
+    return 100;
+  }
+  return Number(parsed.toFixed(2));
+}
+
+function getSignupBonusPointsSetting() {
+  return parseNonNegativeInt(getSetting('signupBonusPoints', '0'), 0);
+}
+
+function getPurchasePointRateSetting() {
+  return parsePointRate(getSetting('purchasePointRate', '0'), 0);
+}
+
+function calculateEarnedPoints(totalPrice, pointRate) {
+  const amount = Number(totalPrice || 0);
+  const rate = parsePointRate(pointRate, 0);
+  if (!Number.isFinite(amount) || amount <= 0 || rate <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.floor((amount * rate) / 100));
+}
+
 function buildAdminProductSubmission(rawBody, groupConfig) {
   const fields =
     Array.isArray(groupConfig?.customFields) && groupConfig.customFields.length > 0
@@ -1862,6 +1898,7 @@ function loadUser(req, res, next) {
           phone,
           customs_clearance_no,
           default_address,
+          reward_points,
           is_admin,
           admin_role,
           is_blocked,
@@ -1900,6 +1937,7 @@ function loadUser(req, res, next) {
     phone: user.phone || '',
     customsClearanceNo: user.customs_clearance_no || '',
     defaultAddress: user.default_address || '',
+    rewardPoints: Number(user.reward_points || 0),
     isAdmin: Number(user.is_admin) === 1,
     adminRole: Number(user.is_admin) === 1 ? normalizeAdminRole(user.admin_role) : '',
     isBlocked: Number(user.is_blocked) === 1,
@@ -2033,6 +2071,8 @@ app.use((req, res, next) => {
       dayThemeAssets,
       nightThemeAssets,
       bankAccountInfo: getSetting('bankAccountInfo', ''),
+      signupBonusPoints: getSignupBonusPointsSetting(),
+      purchasePointRate: getPurchasePointRateSetting(),
       contactInfo: getSetting('contactInfo', ''),
       businessInfo: getSetting('businessInfo', '')
     },
@@ -2427,6 +2467,7 @@ app.get('/shop/item/:id/purchase', requireAuth, (req, res) => {
   const productGroupLabel = productGroupLabelMap[product.category_group] || product.category_group;
 
   incrementFunnelEventUniqueInSession(req, FUNNEL_EVENT.PURCHASE_VIEW, `product:${id}`);
+  const purchasePointRate = getPurchasePointRateSetting();
 
   const formData = {
     buyerName: req.user.fullName || '',
@@ -2436,7 +2477,14 @@ app.get('/shop/item/:id/purchase', requireAuth, (req, res) => {
     quantity: 1
   };
 
-  return res.render('purchase-form', { title: 'Purchase', product, formData, productGroupLabel });
+  return res.render('purchase-form', {
+    title: 'Purchase',
+    product,
+    formData,
+    productGroupLabel,
+    purchasePointRate,
+    expectedPoints: calculateEarnedPoints(product.price, purchasePointRate)
+  });
 });
 
 app.post('/shop/item/:id/purchase', requireAuth, (req, res) => {
@@ -2470,10 +2518,18 @@ app.post('/shop/item/:id/purchase', requireAuth, (req, res) => {
     buyerAddress,
     quantity
   };
+  const purchasePointRate = getPurchasePointRateSetting();
 
   const renderWithError = (message) => {
     res.locals.ctx.flash = { type: 'error', message };
-    return res.render('purchase-form', { title: 'Purchase', product, formData, productGroupLabel });
+    return res.render('purchase-form', {
+      title: 'Purchase',
+      product,
+      formData,
+      productGroupLabel,
+      purchasePointRate,
+      expectedPoints: calculateEarnedPoints(product.price * quantity, purchasePointRate)
+    });
   };
 
   if (!buyerName || !buyerContact || !buyerAddress || !customsClearanceNo) {
@@ -2647,8 +2703,20 @@ app.get('/shop/order-complete/:orderNo', (req, res) => {
   }
 
   const statusMeta = getOrderStatusMeta(order.status, res.locals.ctx.lang);
+  const isMemberOrder = Number(order.created_by_user_id || 0) > 0;
+  const purchasePointRate = getPurchasePointRateSetting();
+  const expectedPoints = isMemberOrder ? calculateEarnedPoints(order.total_price, purchasePointRate) : 0;
+  const awardedPoints = parseNonNegativeInt(order.awarded_points, 0);
 
-  res.render('order-complete', { title: 'Order Complete', order, statusMeta });
+  res.render('order-complete', {
+    title: 'Order Complete',
+    order,
+    statusMeta,
+    isMemberOrder,
+    purchasePointRate,
+    expectedPoints,
+    awardedPoints
+  });
 });
 
 app.get('/mypage', requireAuth, (req, res) => {
@@ -2660,7 +2728,7 @@ app.get('/mypage', requireAuth, (req, res) => {
   const profile = db
     .prepare(
       `
-        SELECT id, username, full_name, phone, customs_clearance_no, default_address
+        SELECT id, username, full_name, phone, customs_clearance_no, default_address, reward_points
         FROM users
         WHERE id = ?
         LIMIT 1
@@ -2762,7 +2830,8 @@ app.get('/mypage', requireAuth, (req, res) => {
       fullName: profile.full_name || '',
       phone: profile.phone || '',
       customsClearanceNo: profile.customs_clearance_no || '',
-      defaultAddress: profile.default_address || ''
+      defaultAddress: profile.default_address || '',
+      rewardPoints: Number(profile.reward_points || 0)
     }
   });
 });
@@ -3123,15 +3192,37 @@ app.post(
 
   try {
     const hash = await bcrypt.hash(password, 10);
-    const result = db.prepare(
-      'INSERT INTO users (email, username, password_hash, agreed_terms, is_admin) VALUES (?, ?, ?, 1, 0)'
-    ).run(email, username, hash);
+    const signupBonusPoints = getSignupBonusPointsSetting();
+    const createMember = db.transaction((nextEmail, nextUsername, nextHash, bonusPoints) => {
+      const inserted = db
+        .prepare(
+          'INSERT INTO users (email, username, password_hash, agreed_terms, is_admin) VALUES (?, ?, ?, 1, 0)'
+        )
+        .run(nextEmail, nextUsername, nextHash);
 
-    req.session.userId = Number(result.lastInsertRowid);
+      const userId = Number(inserted.lastInsertRowid);
+      if (bonusPoints > 0) {
+        db.prepare('UPDATE users SET reward_points = reward_points + ? WHERE id = ?').run(bonusPoints, userId);
+      }
+      return userId;
+    });
+
+    const createdUserId = createMember(email, username, hash, signupBonusPoints);
+
+    req.session.userId = createdUserId;
     req.session.isAdmin = false;
     resetAuthAttempt(req, 'signup');
 
-    setFlash(req, 'success', '회원가입이 완료되었습니다.');
+    const isEn = res.locals.ctx.lang === 'en';
+    const successMessage =
+      signupBonusPoints > 0
+        ? isEn
+          ? `Sign up complete. ${signupBonusPoints.toLocaleString()} points have been credited.`
+          : `회원가입이 완료되었습니다. ${signupBonusPoints.toLocaleString()}포인트가 지급되었습니다.`
+        : isEn
+          ? 'Sign up complete.'
+          : '회원가입이 완료되었습니다.';
+    setFlash(req, 'success', successMessage);
     res.redirect('/main');
   } catch {
     setFlash(req, 'error', '이미 사용 중인 이메일 또는 아이디입니다.');
@@ -4225,6 +4316,8 @@ function buildAdminDashboardViewData(lang = 'ko', options = {}) {
     dayThemeAssets,
     nightThemeAssets,
     bankAccountInfo: getSetting('bankAccountInfo', ''),
+    signupBonusPoints: getSignupBonusPointsSetting(),
+    purchasePointRate: getPurchasePointRateSetting(),
     contactInfo: getSetting('contactInfo', ''),
     businessInfo: getSetting('businessInfo', ''),
     languageDefault: getSetting('languageDefault', 'ko'),
@@ -5505,6 +5598,8 @@ app.post(
     const nightChipColor = normalizeHexColor(req.body.nightChipColor || '', nightThemeDefaults.chipColor);
 
     const bankAccountInfo = String(req.body.bankAccountInfo || '').trim();
+    const signupBonusPoints = parseNonNegativeInt(req.body.signupBonusPoints, 0);
+    const purchasePointRate = parsePointRate(req.body.purchasePointRate, 0);
     const contactInfo = String(req.body.contactInfo || '').trim();
     const businessInfo = String(req.body.businessInfo || '').trim();
     const languageDefault = resolveLanguage(req.body.languageDefault || 'ko', 'ko');
@@ -5536,6 +5631,8 @@ app.post(
     // Backward-compatible legacy keys
     setSetting('headerColor', dayHeaderColor);
     setSetting('bankAccountInfo', bankAccountInfo);
+    setSetting('signupBonusPoints', signupBonusPoints);
+    setSetting('purchasePointRate', purchasePointRate);
     setSetting('contactInfo', contactInfo);
     setSetting('businessInfo', businessInfo);
     setSetting('languageDefault', languageDefault);
@@ -6140,7 +6237,16 @@ app.post('/admin/qc/:id/delete', requireAdmin, (req, res) => {
 app.post('/admin/order/:id/confirm', requireAdmin, (req, res) => {
   const backPath = safeBackPath(req, '/admin/orders');
   const id = Number(req.params.id);
-  const order = db.prepare('SELECT id, order_no, status FROM orders WHERE id = ? LIMIT 1').get(id);
+  const order = db
+    .prepare(
+      `
+        SELECT id, order_no, status, total_price, created_by_user_id, awarded_points, points_awarded_at
+        FROM orders
+        WHERE id = ?
+        LIMIT 1
+      `
+    )
+    .get(id);
 
   if (!order) {
     setFlash(req, 'error', '주문을 찾을 수 없습니다.');
@@ -6153,21 +6259,67 @@ app.post('/admin/order/:id/confirm', requireAdmin, (req, res) => {
     return res.redirect(backPath);
   }
 
-  const updated = db.prepare(
-    `
-      UPDATE orders
-      SET status = ?, checked_at = datetime('now')
-      WHERE id = ? AND status = ?
-    `
-  ).run(ORDER_STATUS.ORDER_CONFIRMED, id, ORDER_STATUS.PENDING_REVIEW);
+  const memberUserId = Number(order.created_by_user_id || 0);
+  const hasPointRecord =
+    Boolean(order.points_awarded_at) || parseNonNegativeInt(order.awarded_points, 0) > 0;
+  const purchasePointRate = getPurchasePointRateSetting();
+  const pointsToAward =
+    memberUserId > 0 && !hasPointRecord ? calculateEarnedPoints(order.total_price, purchasePointRate) : 0;
 
-  if (updated.changes === 0) {
+  const confirmResult = db.transaction(() => {
+    const updated = db
+      .prepare(
+        `
+          UPDATE orders
+          SET status = ?, checked_at = datetime('now')
+          WHERE id = ? AND status = ?
+        `
+      )
+      .run(ORDER_STATUS.ORDER_CONFIRMED, id, ORDER_STATUS.PENDING_REVIEW);
+
+    if (updated.changes === 0) {
+      return { updated: 0, awardedPoints: 0 };
+    }
+
+    let awardedPoints = 0;
+    if (memberUserId > 0 && pointsToAward > 0) {
+      const userUpdated = db
+        .prepare('UPDATE users SET reward_points = reward_points + ? WHERE id = ? AND is_admin = 0')
+        .run(pointsToAward, memberUserId);
+
+      if (userUpdated.changes > 0) {
+        db.prepare(
+          `
+            UPDATE orders
+            SET
+              awarded_points = ?,
+              points_awarded_at = COALESCE(points_awarded_at, datetime('now'))
+            WHERE id = ?
+          `
+        ).run(pointsToAward, id);
+        awardedPoints = pointsToAward;
+      }
+    }
+
+    return { updated: updated.changes, awardedPoints };
+  })();
+
+  if (confirmResult.updated === 0) {
     setFlash(req, 'error', '이미 처리된 주문입니다. 페이지를 새로고침해 주세요.');
     return res.redirect(backPath);
   }
 
   appendOrderStatusLog(order.id, order.order_no, ORDER_STATUS.PENDING_REVIEW, ORDER_STATUS.ORDER_CONFIRMED, 'admin:confirm');
   incrementFunnelEvent(toKstDate(), FUNNEL_EVENT.PAYMENT_CONFIRMED);
+
+  if (confirmResult.awardedPoints > 0) {
+    setFlash(
+      req,
+      'success',
+      `입금확인 처리되었습니다. 회원에게 ${formatPrice(confirmResult.awardedPoints)}포인트가 적립되었습니다.`
+    );
+    return res.redirect(backPath);
+  }
 
   setFlash(req, 'success', '입금확인 처리되었습니다.');
   return res.redirect(backPath);
