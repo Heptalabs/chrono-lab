@@ -1257,6 +1257,9 @@ function normalizeMyPageSection(rawSection = '') {
   if (section === 'info') {
     return 'info';
   }
+  if (section === 'orders') {
+    return 'orders';
+  }
   if (section === 'profile') {
     return 'profile';
   }
