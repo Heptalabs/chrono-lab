@@ -309,6 +309,9 @@ function ensureUserMemberProfileColumns() {
 
   addColumnIfMissing('customs_clearance_no', "customs_clearance_no TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing('default_address', "default_address TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing('nickname', "nickname TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing('profile_image_path', "profile_image_path TEXT NOT NULL DEFAULT ''");
+  db.prepare("UPDATE users SET nickname = username WHERE COALESCE(TRIM(nickname), '') = ''").run();
 }
 
 function ensureUserPointColumns() {
@@ -990,10 +993,12 @@ export function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT NOT NULL UNIQUE,
       username TEXT NOT NULL UNIQUE,
+      nickname TEXT NOT NULL DEFAULT '',
       full_name TEXT NOT NULL DEFAULT '',
       phone TEXT NOT NULL DEFAULT '',
       customs_clearance_no TEXT NOT NULL DEFAULT '',
       default_address TEXT NOT NULL DEFAULT '',
+      profile_image_path TEXT NOT NULL DEFAULT '',
       reward_points INTEGER NOT NULL DEFAULT 0,
       password_hash TEXT NOT NULL,
       agreed_terms INTEGER NOT NULL DEFAULT 1,

@@ -33,8 +33,8 @@ const isProduction = process.env.NODE_ENV === 'production';
 const ASSET_VERSION = process.env.RENDER_GIT_COMMIT || `${Date.now()}`;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const USERNAME_REGEX = /^[A-Za-z0-9_]{4,20}$/;
-const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*[0-9]).{8,}$/;
+const USERNAME_REGEX = /^[a-z0-9]{4,20}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/;
 const DIGIT_PHONE_REGEX = /^[0-9]+$/;
 const CUSTOMS_NO_REGEX = /^[A-Za-z0-9-]{6,30}$/;
 const TRACKING_NUMBER_REGEX = /^[A-Za-z0-9-]{6,40}$/;
@@ -1254,10 +1254,13 @@ function parseAdminOrderManageQuery(query = {}, availableGroupKeys = []) {
 
 function normalizeMyPageSection(rawSection = '') {
   const section = String(rawSection || '').trim().toLowerCase();
+  if (section === 'info') {
+    return 'info';
+  }
   if (section === 'profile') {
     return 'profile';
   }
-  return 'orders';
+  return 'info';
 }
 
 function parseMyPageQuery(query = {}, availableGroupKeys = []) {
@@ -1654,6 +1657,60 @@ function generateOrderNo() {
   return `CL-${datePart}-${random}`;
 }
 
+function issueSignupCaptcha(req) {
+  const left = Math.floor(Math.random() * 9) + 1;
+  const right = Math.floor(Math.random() * 9) + 1;
+  const answer = String(left + right);
+  const issuedAt = Date.now();
+
+  if (req.session) {
+    req.session.signupCaptcha = { answer, issuedAt };
+  }
+
+  return {
+    promptKo: `${left} + ${right} = ?`,
+    promptEn: `${left} + ${right} = ?`
+  };
+}
+
+function readSignupCaptcha(req) {
+  if (!req.session || !req.session.signupCaptcha || typeof req.session.signupCaptcha !== 'object') {
+    return null;
+  }
+
+  const answer = String(req.session.signupCaptcha.answer || '').trim();
+  const issuedAt = Number(req.session.signupCaptcha.issuedAt || 0);
+  if (!answer || !Number.isFinite(issuedAt) || issuedAt <= 0) {
+    return null;
+  }
+
+  return { answer, issuedAt };
+}
+
+function clearSignupCaptcha(req) {
+  if (req.session && req.session.signupCaptcha) {
+    delete req.session.signupCaptcha;
+  }
+}
+
+function getMemberCartCount(userId) {
+  const targetUserId = Number(userId || 0);
+  if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+    return 0;
+  }
+
+  const hasCartTable = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'cart_items' LIMIT 1")
+    .get();
+
+  if (!hasCartTable) {
+    return 0;
+  }
+
+  const row = db.prepare('SELECT COUNT(*) AS count FROM cart_items WHERE user_id = ?').get(targetUserId);
+  return Number(row?.count || 0);
+}
+
 function maskUsername(username = '') {
   if (username.length <= 2) {
     return `${username.slice(0, 1)}*`;
@@ -1894,10 +1951,12 @@ function loadUser(req, res, next) {
           id,
           email,
           username,
+          nickname,
           full_name,
           phone,
           customs_clearance_no,
           default_address,
+          profile_image_path,
           reward_points,
           is_admin,
           admin_role,
@@ -1933,10 +1992,12 @@ function loadUser(req, res, next) {
     id: Number(user.id),
     email: user.email,
     username: user.username,
+    nickname: user.nickname || user.username || '',
     fullName: user.full_name || '',
     phone: user.phone || '',
     customsClearanceNo: user.customs_clearance_no || '',
     defaultAddress: user.default_address || '',
+    profileImagePath: user.profile_image_path || '',
     rewardPoints: Number(user.reward_points || 0),
     isAdmin: Number(user.is_admin) === 1,
     adminRole: Number(user.is_admin) === 1 ? normalizeAdminRole(user.admin_role) : '',
@@ -2728,7 +2789,17 @@ app.get('/mypage', requireAuth, (req, res) => {
   const profile = db
     .prepare(
       `
-        SELECT id, username, full_name, phone, customs_clearance_no, default_address, reward_points
+        SELECT
+          id,
+          username,
+          email,
+          nickname,
+          full_name,
+          phone,
+          customs_clearance_no,
+          default_address,
+          profile_image_path,
+          reward_points
         FROM users
         WHERE id = ?
         LIMIT 1
@@ -2743,6 +2814,28 @@ app.get('/mypage', requireAuth, (req, res) => {
     setFlash(req, 'error', '사용자 정보를 확인할 수 없어 다시 로그인해 주세요.');
     return res.redirect('/login');
   }
+
+  const summaryRow = db
+    .prepare(
+      `
+        SELECT
+          COALESCE(SUM(CASE WHEN status != ? THEN total_price ELSE 0 END), 0) AS total_purchase_amount,
+          COALESCE(SUM(awarded_points), 0) AS total_earned_points
+        FROM orders
+        WHERE created_by_user_id = ?
+      `
+    )
+    .get(ORDER_STATUS.PENDING_REVIEW, req.user.id);
+
+  const usedPoints = 0;
+  const availablePoints = Number(profile.reward_points || 0);
+  const myPageSummary = {
+    totalPurchaseAmount: Number(summaryRow?.total_purchase_amount || 0),
+    totalEarnedPoints: Number(summaryRow?.total_earned_points || 0),
+    usedPoints,
+    availablePoints,
+    cartCount: getMemberCartCount(req.user.id)
+  };
 
   const ordersQuery = [
     'SELECT o.*, p.category_group, p.brand, p.model, p.sub_model',
@@ -2825,13 +2918,17 @@ app.get('/mypage', requireAuth, (req, res) => {
       key: group.key,
       label: groupLabelMap[group.key] || group.key
     })),
+    myPageSummary,
     profileForm: {
       username: profile.username || req.user.username,
+      email: profile.email || req.user.email || '',
+      nickname: profile.nickname || profile.username || req.user.nickname || req.user.username,
       fullName: profile.full_name || '',
       phone: profile.phone || '',
       customsClearanceNo: profile.customs_clearance_no || '',
       defaultAddress: profile.default_address || '',
-      rewardPoints: Number(profile.reward_points || 0)
+      rewardPoints: Number(profile.reward_points || 0),
+      profileImagePath: profile.profile_image_path || ''
     }
   });
 });
@@ -2872,6 +2969,19 @@ app.post('/mypage/profile/update', requireAuth, (req, res) => {
   ).run(fullName, phone, customsClearanceNo, defaultAddress, req.user.id);
 
   setFlash(req, 'success', '정보 설정이 저장되었습니다.');
+  return res.redirect(backPath);
+});
+
+app.post('/mypage/profile/avatar', requireAuth, upload.single('profileImage'), (req, res) => {
+  const backPath = '/mypage?section=info';
+
+  if (!req.file) {
+    setFlash(req, 'error', '프로필 이미지를 선택해 주세요.');
+    return res.redirect(backPath);
+  }
+
+  db.prepare('UPDATE users SET profile_image_path = ? WHERE id = ?').run(fileUrl(req.file), req.user.id);
+  setFlash(req, 'success', '프로필 이미지가 변경되었습니다.');
   return res.redirect(backPath);
 });
 
@@ -3147,7 +3257,11 @@ app.get('/inquiry/:id', (req, res) => {
 });
 
 app.get('/signup', (req, res) => {
-  res.render('signup', { title: 'Sign up' });
+  const captcha = issueSignupCaptcha(req);
+  res.render('signup', {
+    title: 'Sign up',
+    signupCaptchaPrompt: res.locals.ctx.lang === 'en' ? captcha.promptEn : captcha.promptKo
+  });
 });
 
 app.post(
@@ -3156,12 +3270,32 @@ app.post(
   asyncRoute(async (req, res) => {
   const email = String(req.body.email || '').trim();
   const username = String(req.body.username || '').trim();
+  const nickname = String(req.body.nickname || '').trim();
+  const phone = normalizePhone(req.body.phone || '');
   const password = String(req.body.password || '');
   const passwordConfirm = String(req.body.passwordConfirm || '');
+  const captchaAnswer = String(req.body.captchaAnswer || '').trim();
+  const honeypotValue = String(req.body.website || '').trim();
   const agreed = req.body.agreedTerms === 'on';
+  const captcha = readSignupCaptcha(req);
 
-  if (!email || !username || !password || !passwordConfirm) {
+  if (honeypotValue) {
+    setFlash(req, 'error', '요청이 차단되었습니다.');
+    return res.redirect('/signup');
+  }
+
+  if (!email || !username || !nickname || !phone || !password || !passwordConfirm) {
     setFlash(req, 'error', '필수 항목을 입력해 주세요.');
+    return res.redirect('/signup');
+  }
+
+  if (!captcha || Date.now() - captcha.issuedAt < 1200) {
+    setFlash(req, 'error', '자동등록방지 검증이 만료되었습니다. 다시 시도해 주세요.');
+    return res.redirect('/signup');
+  }
+
+  if (!captchaAnswer || captchaAnswer !== captcha.answer) {
+    setFlash(req, 'error', '자동등록방지 답변이 올바르지 않습니다.');
     return res.redirect('/signup');
   }
 
@@ -3171,12 +3305,22 @@ app.post(
   }
 
   if (!USERNAME_REGEX.test(username)) {
-    setFlash(req, 'error', '아이디는 4~20자 영문/숫자/언더스코어만 사용 가능합니다.');
+    setFlash(req, 'error', '아이디는 4~20자 영문 소문자/숫자만 사용 가능합니다.');
+    return res.redirect('/signup');
+  }
+
+  if (nickname.length < 2 || nickname.length > 40) {
+    setFlash(req, 'error', '닉네임은 2~40자로 입력해 주세요.');
+    return res.redirect('/signup');
+  }
+
+  if (!PHONE_REGEX.test(phone)) {
+    setFlash(req, 'error', '핸드폰번호 형식이 올바르지 않습니다.');
     return res.redirect('/signup');
   }
 
   if (!PASSWORD_REGEX.test(password)) {
-    setFlash(req, 'error', '비밀번호는 영문/숫자 포함 8자 이상이어야 합니다.');
+    setFlash(req, 'error', '비밀번호는 영문 대/소문자, 숫자, 특수문자를 포함해 8자 이상이어야 합니다.');
     return res.redirect('/signup');
   }
 
@@ -3193,12 +3337,12 @@ app.post(
   try {
     const hash = await bcrypt.hash(password, 10);
     const signupBonusPoints = getSignupBonusPointsSetting();
-    const createMember = db.transaction((nextEmail, nextUsername, nextHash, bonusPoints) => {
+    const createMember = db.transaction((nextEmail, nextUsername, nextNickname, nextPhone, nextHash, bonusPoints) => {
       const inserted = db
         .prepare(
-          'INSERT INTO users (email, username, password_hash, agreed_terms, is_admin) VALUES (?, ?, ?, 1, 0)'
+          'INSERT INTO users (email, username, nickname, phone, password_hash, agreed_terms, is_admin) VALUES (?, ?, ?, ?, ?, 1, 0)'
         )
-        .run(nextEmail, nextUsername, nextHash);
+        .run(nextEmail, nextUsername, nextNickname, nextPhone, nextHash);
 
       const userId = Number(inserted.lastInsertRowid);
       if (bonusPoints > 0) {
@@ -3207,10 +3351,11 @@ app.post(
       return userId;
     });
 
-    const createdUserId = createMember(email, username, hash, signupBonusPoints);
+    const createdUserId = createMember(email, username, nickname, phone, hash, signupBonusPoints);
 
     req.session.userId = createdUserId;
     req.session.isAdmin = false;
+    clearSignupCaptcha(req);
     resetAuthAttempt(req, 'signup');
 
     const isEn = res.locals.ctx.lang === 'en';

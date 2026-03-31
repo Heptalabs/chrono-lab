@@ -1,9 +1,13 @@
 <%- include('partials/layout-start') %>
 <% const isEn = ctx.lang === 'en'; %>
-<% const activeSection = myPageSection || 'orders'; %>
+<% const activeSection = myPageSection || 'info'; %>
 <% const filters = myPageFilters || { group: 'all', dateFrom: '', dateTo: '' }; %>
 <% const groups = Array.isArray(myPageGroups) ? myPageGroups : []; %>
 <% const profile = profileForm || {}; %>
+<% const summary = myPageSummary || { totalPurchaseAmount: 0, totalEarnedPoints: 0, usedPoints: 0, availablePoints: 0, cartCount: 0 }; %>
+<% const profileImage = profile.profileImagePath || ''; %>
+<% const nickname = profile.nickname || profile.username || (ctx.currentUser && ctx.currentUser.username) || '-'; %>
+<% const email = profile.email || (ctx.currentUser && ctx.currentUser.email) || '-'; %>
 
 <section class="block-card">
   <div class="section-head">
@@ -16,6 +20,9 @@
   </div>
 
   <div class="chip-row mypage-tab-row">
+    <a href="/mypage?section=info" class="chip <%= activeSection === 'info' ? 'dark' : '' %>">
+      <%= isEn ? 'My Info' : '내 정보' %>
+    </a>
     <a href="/mypage?section=orders" class="chip <%= activeSection === 'orders' ? 'dark' : '' %>">
       <%= isEn ? 'Order Status' : '주문 현황' %>
     </a>
@@ -24,7 +31,49 @@
     </a>
   </div>
 
-  <% if (activeSection === 'profile') { %>
+  <% if (activeSection === 'info') { %>
+    <div class="mypage-info-layout">
+      <article class="mypage-info-hero">
+        <div class="mypage-avatar-wrap">
+          <% if (profileImage) { %>
+            <img src="<%= profileImage %>" alt="Profile" class="mypage-avatar" />
+          <% } else { %>
+            <div class="mypage-avatar mypage-avatar-fallback"><%= String(nickname || '?').slice(0, 1).toUpperCase() %></div>
+          <% } %>
+        </div>
+        <h3><%= nickname %></h3>
+        <p><%= email %></p>
+
+        <form method="post" action="/mypage/profile/avatar" enctype="multipart/form-data" class="mypage-avatar-form">
+          <input type="file" name="profileImage" accept="image/*" required />
+          <button type="submit" class="chip dark"><%= isEn ? 'Update Profile Photo' : '프로필 사진 변경' %></button>
+        </form>
+      </article>
+
+      <article class="mypage-info-stats">
+        <div class="mypage-stat-card">
+          <h4><%= isEn ? 'Total Purchase Amount' : '누적 구매 금액' %></h4>
+          <strong>₩<%= ctx.formatPrice(summary.totalPurchaseAmount || 0) %></strong>
+        </div>
+        <div class="mypage-stat-card">
+          <h4><%= isEn ? 'Total Earned Points' : '누적 포인트' %></h4>
+          <strong><%= ctx.formatPrice(summary.totalEarnedPoints || 0) %>P</strong>
+        </div>
+        <div class="mypage-stat-card">
+          <h4><%= isEn ? 'Used Points' : '사용 포인트' %></h4>
+          <strong><%= ctx.formatPrice(summary.usedPoints || 0) %>P</strong>
+        </div>
+        <div class="mypage-stat-card">
+          <h4><%= isEn ? 'Available Points' : '사용 가능 포인트' %></h4>
+          <strong><%= ctx.formatPrice(summary.availablePoints || 0) %>P</strong>
+        </div>
+        <div class="mypage-stat-card">
+          <h4><%= isEn ? 'Cart' : '장바구니' %></h4>
+          <strong><%= ctx.formatPrice(summary.cartCount || 0) %></strong>
+        </div>
+      </article>
+    </div>
+  <% } else if (activeSection === 'profile') { %>
     <div class="mypage-profile-grid">
       <article class="mypage-panel">
         <h3><%= isEn ? 'Profile Information' : '기본 정보 설정' %></h3>
@@ -75,16 +124,17 @@
   <% } else { %>
     <form method="get" action="/mypage" class="admin-filter-row mypage-order-filter-row">
       <input type="hidden" name="section" value="orders" />
+      <input type="hidden" name="group" value="<%= filters.group || 'all' %>" id="mypageGroupInput" />
 
-      <label class="admin-filter-item">
+      <div class="admin-filter-item mypage-group-filter-item">
         <span><%= isEn ? 'Shop Category' : '쇼핑몰 분류' %></span>
-        <select name="group">
-          <option value="all" <%= filters.group === 'all' ? 'selected' : '' %>><%= isEn ? 'All' : '전체' %></option>
+        <div class="chip-row mypage-group-chip-row" id="mypageGroupChips">
+          <button type="button" class="chip <%= filters.group === 'all' ? 'dark' : '' %>" data-group="all"><%= isEn ? 'All' : '전체' %></button>
           <% groups.forEach((group) => { %>
-            <option value="<%= group.key %>" <%= filters.group === group.key ? 'selected' : '' %>><%= group.label %></option>
+            <button type="button" class="chip <%= filters.group === group.key ? 'dark' : '' %>" data-group="<%= group.key %>"><%= group.label %></button>
           <% }) %>
-        </select>
-      </label>
+        </div>
+      </div>
 
       <label class="admin-filter-item">
         <span><%= isEn ? 'From Date' : '시작일' %></span>
@@ -164,5 +214,22 @@
     </div>
   <% } %>
 </section>
+
+<script>
+  (() => {
+    const chips = document.querySelectorAll('#mypageGroupChips [data-group]');
+    const groupInput = document.getElementById('mypageGroupInput');
+    const form = groupInput?.closest('form');
+    if (!chips.length || !groupInput || !form) return;
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const targetGroup = chip.getAttribute('data-group') || 'all';
+        groupInput.value = targetGroup;
+        form.requestSubmit();
+      });
+    });
+  })();
+</script>
 
 <%- include('partials/layout-end') %>

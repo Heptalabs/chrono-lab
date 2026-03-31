@@ -1261,6 +1261,47 @@ body.theme-night .watermark-preview-canvas {
   width: auto;
 }
 
+.field-error {
+  display: none;
+  color: #c7172e;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.field-error.show {
+  display: block;
+}
+
+.signup-form-grid .hp-field {
+  position: absolute !important;
+  left: -99999px !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+}
+
+.signup-captcha-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.signup-captcha-row input {
+  max-width: 140px;
+}
+
+.signup-captcha-prompt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  min-width: 110px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--chip);
+  padding: 8px 12px;
+}
+
 .site-footer {
   margin-top: 16px;
 }
@@ -1745,6 +1786,88 @@ body.theme-night .watermark-preview-canvas {
   gap: 12px;
 }
 
+.mypage-info-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.mypage-info-hero {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card);
+  padding: 16px;
+  display: grid;
+  gap: 9px;
+  justify-items: center;
+  text-align: center;
+}
+
+.mypage-avatar-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.mypage-avatar {
+  width: 108px;
+  height: 108px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+  background: var(--chip);
+}
+
+.mypage-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.15rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+
+.mypage-info-hero h3 {
+  margin: 2px 0 0;
+  font-size: 1.22rem;
+}
+
+.mypage-info-hero p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.mypage-avatar-form {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 8px;
+}
+
+.mypage-info-stats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.mypage-stat-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.mypage-stat-card h4 {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.mypage-stat-card strong {
+  font-size: 1.2rem;
+}
+
 .mypage-panel {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -1765,6 +1888,28 @@ body.theme-night .watermark-preview-canvas {
 
 .mypage-order-filter-row {
   margin-top: 4px;
+}
+
+.mypage-group-filter-item {
+  min-width: 260px;
+}
+
+.mypage-group-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.mypage-group-chip-row::-webkit-scrollbar {
+  height: 0;
+}
+
+.mypage-group-chip-row .chip {
+  white-space: nowrap;
 }
 
 .admin-pagination {
@@ -1847,10 +1992,12 @@ th {
 
 .mypage-order-table th:nth-child(1),
 .mypage-order-table th:nth-child(2),
-.mypage-order-table th:nth-child(7),
+.mypage-order-table th:nth-child(6),
+.mypage-order-table th:nth-child(8),
 .mypage-order-table td:nth-child(1),
 .mypage-order-table td:nth-child(2),
-.mypage-order-table td:nth-child(7) {
+.mypage-order-table td:nth-child(6),
+.mypage-order-table td:nth-child(8) {
   text-align: center;
 }
 
@@ -1866,7 +2013,7 @@ th {
   min-width: 160px;
 }
 
-.mypage-order-table td:nth-child(6) {
+.mypage-order-table td:nth-child(7) {
   min-width: 190px;
 }
 
@@ -2228,6 +2375,14 @@ body.theme-night .inline-file-preview-image {
     font-size: 0.76rem;
   }
 
+  .signup-captcha-row {
+    flex-wrap: wrap;
+  }
+
+  .signup-captcha-row input {
+    max-width: none;
+  }
+
   .section-head .inline-search {
     width: 100%;
   }
@@ -2296,6 +2451,15 @@ body.theme-night .inline-file-preview-image {
   }
 
   .mypage-profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mypage-info-layout {
+    grid-template-columns: 320px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .mypage-info-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

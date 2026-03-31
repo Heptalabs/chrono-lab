@@ -1,22 +1,56 @@
 <%- include('partials/layout-start') %>
 <% const isEn = ctx.lang === 'en'; %>
+<% const captchaPrompt = signupCaptchaPrompt || '4 + 5 = ?'; %>
 
 <section class="auth-wrap">
   <div class="auth-card">
-    <h2>Create Account</h2>
-    <form method="post" action="/signup" class="form-grid">
-      <label><%= isEn ? 'Email (for password reset)' : '이메일 (비번 찾기용)' %>
-        <input type="email" name="email" required />
-      </label>
+    <h2><%= isEn ? 'Create Account' : '회원가입' %></h2>
+    <form method="post" action="/signup" class="form-grid signup-form-grid" id="signupForm" novalidate>
       <label><%= isEn ? 'Username' : '아이디' %>
-        <input type="text" name="username" required />
+        <input type="text" name="username" autocomplete="username" required />
+        <small class="muted-label"><%= isEn ? 'Lowercase letters and numbers only (4~20).' : '영문 소문자 + 숫자만 사용 가능 (4~20자).' %></small>
+        <small class="field-error" data-error-for="username"></small>
       </label>
+
+      <label><%= isEn ? 'Nickname' : '닉네임' %>
+        <input type="text" name="nickname" autocomplete="nickname" required />
+        <small class="field-error" data-error-for="nickname"></small>
+      </label>
+
+      <label><%= isEn ? 'Email (for password reset)' : '이메일 (비번 찾기용)' %>
+        <input type="email" name="email" autocomplete="email" required />
+        <small class="field-error" data-error-for="email"></small>
+      </label>
+
+      <label><%= isEn ? 'Mobile Number' : '핸드폰번호' %>
+        <input type="tel" name="phone" inputmode="numeric" autocomplete="tel" required />
+        <small class="field-error" data-error-for="phone"></small>
+      </label>
+
       <label><%= isEn ? 'Password' : '비밀번호' %>
-        <input type="password" name="password" required />
+        <input type="password" name="password" autocomplete="new-password" required />
+        <small class="muted-label"><%= isEn ? 'Use upper/lowercase letters, number, and symbol (8+).' : '영문 대/소문자, 숫자, 특수기호를 포함해 8자 이상.' %></small>
+        <small class="field-error" data-error-for="password"></small>
       </label>
+
       <label><%= isEn ? 'Confirm password' : '비밀번호 확인' %>
-        <input type="password" name="passwordConfirm" required />
+        <input type="password" name="passwordConfirm" autocomplete="new-password" required />
+        <small class="field-error" data-error-for="passwordConfirm"></small>
       </label>
+
+      <label><%= isEn ? 'Anti-bot Verification' : '자동등록방지' %>
+        <div class="signup-captcha-row">
+          <strong class="signup-captcha-prompt"><%= captchaPrompt %></strong>
+          <input type="text" name="captchaAnswer" inputmode="numeric" autocomplete="off" required />
+        </div>
+        <small class="field-error" data-error-for="captchaAnswer"></small>
+      </label>
+
+      <label class="hp-field" aria-hidden="true">
+        <span>Website</span>
+        <input type="text" name="website" tabindex="-1" autocomplete="off" />
+      </label>
+
       <label class="check-row">
         <input type="checkbox" name="agreedTerms" />
         <span><%= isEn ? 'I agree to the terms.' : '약관에 동의합니다.' %></span>
@@ -33,5 +67,136 @@
     <p class="muted-label"><%= isEn ? 'Already have an account?' : '이미 계정이 있나요?' %> <a href="/login"><%= isEn ? 'Login' : '로그인' %></a></p>
   </div>
 </section>
+
+<script>
+  (() => {
+    const form = document.getElementById('signupForm');
+    if (!form) return;
+
+    const usernameInput = form.querySelector('input[name="username"]');
+    const nicknameInput = form.querySelector('input[name="nickname"]');
+    const emailInput = form.querySelector('input[name="email"]');
+    const phoneInput = form.querySelector('input[name="phone"]');
+    const passwordInput = form.querySelector('input[name="password"]');
+    const passwordConfirmInput = form.querySelector('input[name="passwordConfirm"]');
+    const captchaInput = form.querySelector('input[name="captchaAnswer"]');
+
+    const errorByName = (name) => form.querySelector(`[data-error-for="${name}"]`);
+    const isEn = <%= isEn ? 'true' : 'false' %>;
+
+    const setError = (name, message) => {
+      const el = errorByName(name);
+      if (!el) return;
+      if (message) {
+        el.textContent = message;
+        el.classList.add('show');
+      } else {
+        el.textContent = '';
+        el.classList.remove('show');
+      }
+    };
+
+    const validateUsername = () => {
+      const value = String(usernameInput?.value || '').trim();
+      if (!value) return isEn ? 'Username is required.' : '아이디를 입력해 주세요.';
+      if (!/^[a-z0-9]{4,20}$/.test(value)) {
+        return isEn
+          ? 'Use lowercase letters and numbers only (4~20).'
+          : '아이디는 영문 소문자와 숫자만 사용해 4~20자로 입력해 주세요.';
+      }
+      return '';
+    };
+
+    const validateNickname = () => {
+      const value = String(nicknameInput?.value || '').trim();
+      if (!value) return isEn ? 'Nickname is required.' : '닉네임을 입력해 주세요.';
+      if (value.length < 2 || value.length > 40) {
+        return isEn ? 'Nickname must be 2~40 characters.' : '닉네임은 2~40자로 입력해 주세요.';
+      }
+      return '';
+    };
+
+    const validateEmail = () => {
+      const value = String(emailInput?.value || '').trim();
+      if (!value) return isEn ? 'Email is required.' : '이메일을 입력해 주세요.';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        return isEn ? 'Invalid email format.' : '이메일 형식이 올바르지 않습니다.';
+      }
+      return '';
+    };
+
+    const validatePhone = () => {
+      const value = String(phoneInput?.value || '').replace(/[^0-9]/g, '');
+      if (!value) return isEn ? 'Mobile number is required.' : '핸드폰번호를 입력해 주세요.';
+      if (!/^[0-9]{8,20}$/.test(value)) {
+        return isEn ? 'Enter 8~20 digit mobile number.' : '핸드폰번호는 숫자 8~20자로 입력해 주세요.';
+      }
+      return '';
+    };
+
+    const validatePassword = () => {
+      const value = String(passwordInput?.value || '');
+      if (!value) return isEn ? 'Password is required.' : '비밀번호를 입력해 주세요.';
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/.test(value)) {
+        return isEn
+          ? 'Use upper/lowercase letters, number, and symbol (8+).'
+          : '비밀번호는 영문 대/소문자, 숫자, 특수기호를 포함해 8자 이상이어야 합니다.';
+      }
+      return '';
+    };
+
+    const validatePasswordConfirm = () => {
+      const value = String(passwordConfirmInput?.value || '');
+      if (!value) return isEn ? 'Please confirm your password.' : '비밀번호 확인을 입력해 주세요.';
+      if (value !== String(passwordInput?.value || '')) {
+        return isEn ? 'Passwords do not match.' : '비밀번호가 일치하지 않습니다.';
+      }
+      return '';
+    };
+
+    const validateCaptcha = () => {
+      const value = String(captchaInput?.value || '').trim();
+      if (!value) return isEn ? 'Captcha answer is required.' : '자동등록방지 답변을 입력해 주세요.';
+      if (!/^[0-9]{1,3}$/.test(value)) {
+        return isEn ? 'Enter numbers only.' : '숫자로만 입력해 주세요.';
+      }
+      return '';
+    };
+
+    const validators = {
+      username: validateUsername,
+      nickname: validateNickname,
+      email: validateEmail,
+      phone: validatePhone,
+      password: validatePassword,
+      passwordConfirm: validatePasswordConfirm,
+      captchaAnswer: validateCaptcha
+    };
+
+    Object.entries(validators).forEach(([name, validator]) => {
+      const input = form.querySelector(`[name="${name}"]`);
+      if (!input) return;
+      input.addEventListener('blur', () => {
+        setError(name, validator());
+      });
+      input.addEventListener('input', () => {
+        if (!errorByName(name)?.classList.contains('show')) return;
+        setError(name, validator());
+      });
+    });
+
+    form.addEventListener('submit', (event) => {
+      let hasError = false;
+      Object.entries(validators).forEach(([name, validator]) => {
+        const message = validator();
+        setError(name, message);
+        if (message) hasError = true;
+      });
+      if (hasError) {
+        event.preventDefault();
+      }
+    });
+  })();
+</script>
 
 <%- include('partials/layout-end') %>
