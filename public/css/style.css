@@ -2575,6 +2575,10 @@ body.theme-night .menu-manage-card .admin-list-item > summary small {
   border-radius: 12px;
 }
 
+.order-table-wrap {
+  overflow-x: hidden;
+}
+
 .address-book-save-box {
   border: 1px dashed var(--line);
   border-radius: 12px;
@@ -2595,7 +2599,9 @@ table {
 }
 
 .mypage-order-table {
-  min-width: 980px;
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
 }
 
 .mypage-order-table thead th {
@@ -2605,13 +2611,22 @@ table {
 }
 
 .mypage-order-table td {
-  font-size: 0.83rem;
+  font-size: 0.78rem;
 }
 
 .mypage-order-table td small {
   display: block;
   margin-top: 3px;
-  line-height: 1.38;
+  line-height: 1.35;
+}
+
+.mypage-order-table th,
+.mypage-order-table td {
+  padding: 8px 7px;
+}
+
+.mypage-order-table th {
+  font-size: 0.75rem;
 }
 
 th,
@@ -2672,32 +2687,44 @@ th {
   color: var(--muted);
 }
 
+.mypage-order-table th:nth-child(1),
 .mypage-order-table td:nth-child(1) {
-  min-width: 130px;
+  width: 12%;
 }
 
+.mypage-order-table th:nth-child(2),
 .mypage-order-table td:nth-child(2) {
-  min-width: 92px;
+  width: 7%;
 }
 
+.mypage-order-table th:nth-child(3),
 .mypage-order-table td:nth-child(3) {
-  min-width: 230px;
+  width: 18%;
 }
 
+.mypage-order-table th:nth-child(4),
 .mypage-order-table td:nth-child(4) {
-  min-width: 260px;
+  width: 22%;
 }
 
+.mypage-order-table th:nth-child(5),
 .mypage-order-table td:nth-child(5) {
-  min-width: 185px;
+  width: 13%;
 }
 
+.mypage-order-table th:nth-child(6),
+.mypage-order-table td:nth-child(6) {
+  width: 8%;
+}
+
+.mypage-order-table th:nth-child(7),
 .mypage-order-table td:nth-child(7) {
-  min-width: 240px;
+  width: 12%;
 }
 
+.mypage-order-table th:nth-child(8),
 .mypage-order-table td:nth-child(8) {
-  min-width: 115px;
+  width: 8%;
 }
 
 .order-no-cell {
@@ -2707,7 +2734,8 @@ th {
 .order-no-value {
   display: inline-block;
   line-height: 1.35;
-  word-break: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .order-category-cell {
@@ -2733,10 +2761,13 @@ th {
 .order-product-cell strong {
   display: block;
   line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
 
 .order-product-cell small {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .order-buyer-cell strong {
@@ -2746,6 +2777,7 @@ th {
 
 .order-buyer-cell small {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .order-status-cell {
@@ -2841,6 +2873,7 @@ th {
 
 .order-tracking-cell small {
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .order-tracking-cell small strong {
