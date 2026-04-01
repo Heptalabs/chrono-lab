@@ -123,15 +123,15 @@ const DEFAULT_THEME_COLORS = Object.freeze({
     chipColor: '#f3f4f6'
   }),
   night: Object.freeze({
-    headerColor: '#000000',
+    headerColor: '#0f172a',
     backgroundColor: '#000000',
     textColor: '#ffffff',
     mutedColor: '#f3f4f6',
-    lineColor: '#f3f4f6',
-    cardColor: '#4b5563',
+    lineColor: '#4b5563',
+    cardColor: '#0f172a',
     cardDarkColor: '#ffffff',
     cardDarkTextColor: '#000000',
-    chipColor: '#0f172a'
+    chipColor: '#4b5563'
   })
 });
 
@@ -171,6 +171,7 @@ const PREVIOUS_NIGHT_THEME_COLORS_V1 = Object.freeze({
   cardDarkTextColor: '#000000',
   chipColor: '#0f172a'
 });
+const NIGHT_THEME_REFINED_FLAG_KEY = 'nightThemeRefinedV2Applied';
 
 const THEME_COLOR_PALETTE = Object.freeze(['#f3f4f6', '#4b5563', '#0f172a', '#000000', '#ffffff']);
 const THEME_COLOR_PALETTE_SET = new Set(THEME_COLOR_PALETTE);
@@ -1794,6 +1795,14 @@ function maybeMigrateLegacyThemeColors() {
     for (const [suffix, alias] of nightSettingMap) {
       setSetting(`night${suffix}`, DEFAULT_THEME_COLORS.night[alias]);
     }
+  }
+
+  const nightThemeRefinedApplied = String(getSetting(NIGHT_THEME_REFINED_FLAG_KEY, '0') || '0');
+  if (nightThemeRefinedApplied !== '1') {
+    for (const [suffix, alias] of nightSettingMap) {
+      setSetting(`night${suffix}`, DEFAULT_THEME_COLORS.night[alias]);
+    }
+    setSetting(NIGHT_THEME_REFINED_FLAG_KEY, '1');
   }
 
   setSetting('headerColor', DEFAULT_THEME_COLORS.day.headerColor);
