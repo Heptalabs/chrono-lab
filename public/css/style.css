@@ -125,28 +125,28 @@ body.theme-night {
   --shadow: 0 18px 34px rgba(0, 0, 0, 0.42);
 }
 
-body.theme-night input,
+body.theme-night input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
 body.theme-night select,
 body.theme-night textarea {
   border-color: var(--line);
-  background: var(--color-navy);
-  color: var(--color-light-gray);
+  background: var(--color-white);
+  color: var(--color-black);
 }
 
 body.theme-night input::placeholder,
 body.theme-night textarea::placeholder {
-  color: rgba(243, 244, 246, 0.78);
+  color: rgba(0, 0, 0, 0.56);
 }
 
 body.theme-night input[type='file'] {
-  background: var(--card);
-  color: var(--text);
+  background: var(--color-white);
+  color: var(--color-black);
 }
 
 body.theme-night input[type='file']::file-selector-button {
   border: 1px solid var(--line);
-  background: var(--chip);
-  color: var(--text);
+  background: var(--color-light-gray);
+  color: var(--color-black);
   border-radius: 8px;
   padding: 6px 10px;
   margin-right: 8px;
