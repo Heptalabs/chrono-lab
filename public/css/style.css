@@ -1846,49 +1846,6 @@ body.theme-night .watermark-preview-canvas {
   padding: 12px;
 }
 
-.menu-manage-card {
-  background: #f8fbff;
-  border-color: #cfd8e8;
-}
-
-.menu-manage-card .menu-manage-note {
-  color: #516178;
-}
-
-.menu-manage-card .menu-manage-form,
-.menu-manage-card .kpi-card,
-.menu-manage-card .admin-list-item,
-.menu-manage-card .inquiry-admin-item {
-  background: #e6edf7;
-  border-color: #c1cee2;
-}
-
-.menu-manage-card .admin-list .admin-list-item {
-  background: #edf3fb;
-  border-color: #ccd8ea;
-}
-
-.menu-manage-card .menu-inline-edit {
-  border-top-color: #c8d4e8;
-}
-
-.menu-manage-card .menu-inline-edit > summary {
-  background: #f3f7fd;
-  border-color: #c3d0e6;
-  color: #1d2a42;
-}
-
-.menu-manage-card .menu-inline-edit[open] > summary {
-  background: #1a2741;
-  color: #f5f8ff;
-  border-color: #1a2741;
-}
-
-.menu-manage-card .menu-manage-item-copy .muted-label,
-.menu-manage-card .admin-list-item > summary small {
-  color: #5a6a82;
-}
-
 body.theme-night .menu-manage-card {
   background: #0f1a2f;
   border-color: #576f95;
