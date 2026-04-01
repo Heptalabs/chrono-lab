@@ -18,6 +18,23 @@ export const DEFAULT_PRODUCT_GROUP_CONFIGS = [
     labelKo: '공장제',
     labelEn: 'Factory',
     mode: 'factory',
+    brandOptions: [
+      'Audemars Piguet',
+      'Blancpain',
+      'Breguet',
+      'Breitling',
+      'Cartier',
+      'Hublot',
+      'IWC',
+      'Jaeger-LeCoultre',
+      'Omega',
+      'Panerai',
+      'Patek Philippe',
+      'Rolex',
+      'TAG Heuer',
+      'Zenith'
+    ],
+    factoryOptions: ['ZF', 'CF', 'VSF', 'Clean', 'BT', 'OMF', 'TF'],
     customFields: [
       { key: 'brand', labelKo: '브랜드', labelEn: 'Brand', type: 'text', required: true },
       { key: 'model', labelKo: '모델명', labelEn: 'Model', type: 'text', required: true },
@@ -40,6 +57,17 @@ export const DEFAULT_PRODUCT_GROUP_CONFIGS = [
     labelKo: '젠파츠',
     labelEn: 'Gen Parts',
     mode: 'simple',
+    brandOptions: [
+      'Rolex',
+      'Omega',
+      'Cartier',
+      'IWC',
+      'Panerai',
+      'TAG Heuer',
+      'Patek Philippe',
+      'Audemars Piguet'
+    ],
+    factoryOptions: [],
     customFields: [
       { key: 'title', labelKo: '제목', labelEn: 'Title', type: 'text', required: true },
       { key: 'detailed_description', labelKo: '상세설명', labelEn: 'Detailed Description', type: 'textarea', required: true }
@@ -50,6 +78,17 @@ export const DEFAULT_PRODUCT_GROUP_CONFIGS = [
     labelKo: '현지중고',
     labelEn: 'Local Used',
     mode: 'simple',
+    brandOptions: [
+      'Rolex',
+      'Omega',
+      'Cartier',
+      'IWC',
+      'Panerai',
+      'TAG Heuer',
+      'Patek Philippe',
+      'Audemars Piguet'
+    ],
+    factoryOptions: [],
     customFields: [
       { key: 'title', labelKo: '제목', labelEn: 'Title', type: 'text', required: true },
       { key: 'detailed_description', labelKo: '상세설명', labelEn: 'Detailed Description', type: 'textarea', required: true }

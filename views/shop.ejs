@@ -11,6 +11,30 @@
     });
     return generated;
   })();
+  const safeBrand = String(brand || '').trim();
+  const safeFactory = String(factory || '').trim();
+  const safeModel = String(model || '').trim();
+  const makeShopHref = (next = {}) => {
+    const params = new URLSearchParams();
+    params.set('group', group);
+    const merged = {
+      brand: safeBrand,
+      factory: safeFactory,
+      model: safeModel,
+      ...next
+    };
+
+    ['brand', 'factory', 'model'].forEach((key) => {
+      const value = String(merged[key] || '').trim();
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    return `/shop?${params.toString()}`;
+  };
 %>
 
 <section class="block-card shop-filter-card">
@@ -26,32 +50,38 @@
     </div>
   </div>
 
-  <% if (supportsBrandModelFilter) { %>
+  <div class="filter-group">
+    <h4><%= isEn ? 'Brand' : '브랜드' %></h4>
+    <div class="chip-row chip-scroll-row">
+      <a href="<%= makeShopHref({ brand: '', model: '' }) %>" class="chip <%= safeBrand ? '' : 'dark' %>"><%= isEn ? 'All' : '전체' %></a>
+      <% brands.forEach((item) => { %>
+        <a href="<%= makeShopHref({ brand: item, model: '' }) %>" class="chip <%= safeBrand === item ? 'dark' : '' %>"><%= item %></a>
+      <% }) %>
+    </div>
+  </div>
+
+  <% if (supportsFactoryFilter) { %>
     <div class="filter-group">
-      <h4><%= isEn ? 'Brand' : '브랜드' %></h4>
+      <h4><%= isEn ? 'Factory' : '공장' %></h4>
       <div class="chip-row chip-scroll-row">
-        <a href="/shop?group=<%= encodeURIComponent(group) %>" class="chip <%= brand ? '' : 'dark' %>"><%= isEn ? 'All' : '전체' %></a>
-        <% brands.forEach((item) => { %>
-          <a href="/shop?group=<%= encodeURIComponent(group) %>&brand=<%= encodeURIComponent(item) %>" class="chip <%= brand === item ? 'dark' : '' %>"><%= item %></a>
+        <a href="<%= makeShopHref({ factory: '', model: '' }) %>" class="chip <%= safeFactory ? '' : 'dark' %>"><%= isEn ? 'All' : '전체' %></a>
+        <% factories.forEach((item) => { %>
+          <a href="<%= makeShopHref({ factory: item, model: '' }) %>" class="chip <%= safeFactory === item ? 'dark' : '' %>"><%= item %></a>
         <% }) %>
       </div>
     </div>
   <% } %>
 
-  <% if (supportsBrandModelFilter && brand) { %>
+  <% if (supportsBrandModelFilter && safeBrand) { %>
     <div class="filter-group">
       <h4><%= isEn ? 'Model' : '모델' %></h4>
       <div class="chip-row">
-        <a href="/shop?group=<%= encodeURIComponent(group) %>&brand=<%= encodeURIComponent(brand) %>" class="chip <%= model ? '' : 'dark' %>"><%= isEn ? 'All' : '전체' %></a>
+        <a href="<%= makeShopHref({ model: '' }) %>" class="chip <%= safeModel ? '' : 'dark' %>"><%= isEn ? 'All' : '전체' %></a>
         <% models.forEach((item) => { %>
-          <a href="/shop?group=<%= encodeURIComponent(group) %>&brand=<%= encodeURIComponent(brand) %>&model=<%= encodeURIComponent(item) %>" class="chip <%= model === item ? 'dark' : '' %>"><%= item %></a>
+          <a href="<%= makeShopHref({ model: item }) %>" class="chip <%= safeModel === item ? 'dark' : '' %>"><%= item %></a>
         <% }) %>
       </div>
     </div>
-  <% } %>
-
-  <% if (!supportsBrandModelFilter) { %>
-    <p class="muted-label"><%= isEn ? 'Products are listed directly by selected top category.' : '선택한 카테고리는 상위 분류 기준으로 상품을 바로 확인할 수 있습니다.' %></p>
   <% } %>
 </section>
 

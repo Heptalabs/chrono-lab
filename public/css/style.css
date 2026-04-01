@@ -1683,6 +1683,10 @@ body.theme-night .watermark-preview-canvas {
   margin-top: 8px;
 }
 
+.menu-manage-list .admin-grid {
+  margin-top: 8px;
+}
+
 .menu-manage-item-row {
   display: flex;
   align-items: center;
@@ -1781,6 +1785,10 @@ body.theme-night .watermark-preview-canvas {
   display: block;
   margin-top: 8px;
   font-size: 1.4rem;
+}
+
+.kpi-card .admin-list {
+  margin-top: 8px;
 }
 
 .metric-list {

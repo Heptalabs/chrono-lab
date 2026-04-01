@@ -356,6 +356,65 @@ function normalizeProductFieldAliasKey(rawKey = '') {
   return PRODUCT_FIELD_KEY_ALIASES[normalized] || normalized;
 }
 
+function normalizeProductFilterOption(rawOption = '') {
+  return String(rawOption || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 80);
+}
+
+function normalizeProductFilterOptionList(rawList) {
+  const source = Array.isArray(rawList) ? rawList : [];
+  const normalized = [];
+  const seen = new Set();
+
+  source.forEach((item) => {
+    const value = normalizeProductFilterOption(item);
+    if (!value) {
+      return;
+    }
+    const dedupeKey = value.toLowerCase();
+    if (seen.has(dedupeKey)) {
+      return;
+    }
+    seen.add(dedupeKey);
+    normalized.push(value);
+  });
+
+  return normalized;
+}
+
+function getGroupBrandOptions(groupConfig = null) {
+  if (!groupConfig || typeof groupConfig !== 'object') {
+    return [];
+  }
+  return normalizeProductFilterOptionList(groupConfig.brandOptions);
+}
+
+function getGroupFactoryOptions(groupConfig = null) {
+  if (!isFactoryLikeGroup(groupConfig)) {
+    return [];
+  }
+  return normalizeProductFilterOptionList(groupConfig?.factoryOptions);
+}
+
+function getDefaultGroupFilterSeeds() {
+  const defaults = getDefaultProductGroupConfigs();
+  const factorySource = defaults.find((group) => isFactoryTemplateGroup(group)) || defaults[0] || {};
+  const simpleSource = defaults.find((group) => !isFactoryTemplateGroup(group)) || defaults[0] || {};
+
+  return {
+    factory: {
+      brandOptions: normalizeProductFilterOptionList(factorySource.brandOptions),
+      factoryOptions: normalizeProductFilterOptionList(factorySource.factoryOptions)
+    },
+    simple: {
+      brandOptions: normalizeProductFilterOptionList(simpleSource.brandOptions),
+      factoryOptions: []
+    }
+  };
+}
+
 function cloneFieldTemplate(template = []) {
   return template.map((field) => ({ ...field }));
 }
@@ -498,11 +557,11 @@ function parseProductFieldValuesFromBody(rawBody, groupConfig) {
   });
 
   const legacyBodyValues = {
-    brand: body.brand,
+    brand: body.selectedBrandOption || body.brand,
     model: body.model,
     sub_model: body.subModel || body.sub_model,
     reference: body.reference,
-    factory_name: body.factoryName || body.factory_name,
+    factory_name: body.selectedFactoryOption || body.factoryName || body.factory_name,
     version_name: body.versionName || body.version_name,
     movement: body.movement,
     case_size: body.caseSize || body.case_size,
@@ -517,6 +576,8 @@ function parseProductFieldValuesFromBody(rawBody, groupConfig) {
   };
 
   const fieldDefinitions = Array.isArray(groupConfig?.customFields) ? groupConfig.customFields : [];
+  const brandOptions = getGroupBrandOptions(groupConfig);
+  const factoryOptions = getGroupFactoryOptions(groupConfig);
   const values = {};
 
   for (const field of fieldDefinitions) {
@@ -528,7 +589,10 @@ function parseProductFieldValuesFromBody(rawBody, groupConfig) {
 
     const rawValue = normalizedRawMap[key] ?? legacyBodyValues[key] ?? '';
     const value = normalizeFieldInputValue(rawValue, field.type);
-    if (field.required && !value) {
+    const ignoreRequiredByFilterConfig =
+      (key === 'brand' && brandOptions.length === 0) ||
+      (key === 'factory_name' && factoryOptions.length === 0);
+    if (field.required && !value && !ignoreRequiredByFilterConfig) {
       return {
         error: `${field.labelKo || field.key} 항목은 필수입니다.`,
         values: {}
@@ -625,6 +689,10 @@ function normalizeProductGroupConfigs(rawValue) {
       labelEn,
       mode: group.mode || fallbackGroup.mode || ''
     });
+    const hasExplicitBrandOptions = Object.prototype.hasOwnProperty.call(group, 'brandOptions');
+    const hasExplicitFactoryOptions = Object.prototype.hasOwnProperty.call(group, 'factoryOptions');
+    const fallbackBrandOptions = normalizeProductFilterOptionList(fallbackGroup.brandOptions);
+    const fallbackFactoryOptions = normalizeProductFilterOptionList(fallbackGroup.factoryOptions);
     const sourceFields =
       Array.isArray(group.customFields) && group.customFields.length > 0
         ? group.customFields
@@ -675,13 +743,29 @@ function normalizeProductGroupConfigs(rawValue) {
       customFields = defaultFieldTemplate;
     }
 
-    const mode = isFactoryLikeFields(customFields) ? PRODUCT_GROUP_MODE.FACTORY : PRODUCT_GROUP_MODE.SIMPLE;
+    const requestedMode = String(group.mode || fallbackGroup.mode || '').trim().toLowerCase();
+    const mode = (
+      requestedMode === PRODUCT_GROUP_MODE.FACTORY ||
+      isFactoryTemplateGroup({ key, labelKo, labelEn, mode: requestedMode }) ||
+      isFactoryLikeFields(customFields)
+    )
+      ? PRODUCT_GROUP_MODE.FACTORY
+      : PRODUCT_GROUP_MODE.SIMPLE;
+    const brandOptions = hasExplicitBrandOptions
+      ? normalizeProductFilterOptionList(group.brandOptions)
+      : fallbackBrandOptions;
+    const factoryOptionsRaw = hasExplicitFactoryOptions
+      ? normalizeProductFilterOptionList(group.factoryOptions)
+      : fallbackFactoryOptions;
+    const factoryOptions = mode === PRODUCT_GROUP_MODE.FACTORY ? factoryOptionsRaw : [];
 
     normalizedGroups.push({
       key,
       labelKo: labelKo || key,
       labelEn: labelEn || key,
       mode,
+      brandOptions,
+      factoryOptions,
       customFields
     });
   });
@@ -2263,6 +2347,11 @@ function buildAdminProductSubmission(rawBody, groupConfig) {
     ...(groupConfig || {}),
     customFields: fields
   };
+  const safeBody = rawBody && typeof rawBody === 'object' ? rawBody : {};
+  const brandOptions = getGroupBrandOptions(safeGroupConfig);
+  const factoryOptions = getGroupFactoryOptions(safeGroupConfig);
+  const selectedBrandOption = normalizeProductFilterOption(safeBody.selectedBrandOption || '');
+  const selectedFactoryOption = normalizeProductFilterOption(safeBody.selectedFactoryOption || '');
 
   const parsed = parseProductFieldValuesFromBody(rawBody, safeGroupConfig);
   if (parsed.error) {
@@ -2276,6 +2365,42 @@ function buildAdminProductSubmission(rawBody, groupConfig) {
     return {
       error: '업로드 항목이 비어 있습니다. 분류 필드를 확인해 주세요.'
     };
+  }
+
+  if (brandOptions.length > 0) {
+    if (!selectedBrandOption) {
+      return {
+        error: '브랜드 필터를 선택해 주세요.'
+      };
+    }
+
+    const isValidBrand = brandOptions.some(
+      (option) => option.toLowerCase() === selectedBrandOption.toLowerCase()
+    );
+    if (!isValidBrand) {
+      return {
+        error: '선택한 브랜드 필터가 유효하지 않습니다.'
+      };
+    }
+    fieldValues.brand = selectedBrandOption;
+  }
+
+  if (isFactoryLikeGroup(safeGroupConfig) && factoryOptions.length > 0) {
+    if (!selectedFactoryOption) {
+      return {
+        error: '공장 필터를 선택해 주세요.'
+      };
+    }
+
+    const isValidFactory = factoryOptions.some(
+      (option) => option.toLowerCase() === selectedFactoryOption.toLowerCase()
+    );
+    if (!isValidFactory) {
+      return {
+        error: '선택한 공장 필터가 유효하지 않습니다.'
+      };
+    }
+    fieldValues.factory_name = selectedFactoryOption;
   }
 
   const mapped = mapFieldValuesToProductColumns(fieldValues, safeGroupConfig);
@@ -2937,39 +3062,74 @@ app.get('/shop', (req, res) => {
     labelKo: group,
     labelEn: group,
     mode: PRODUCT_GROUP_MODE.SIMPLE,
+    brandOptions: [],
+    factoryOptions: [],
     customFields: []
   };
   const canUseBrandModelFilter = isFactoryLikeGroup(selectedGroupConfig);
-  const brand = canUseBrandModelFilter ? String(req.query.brand || '').trim() : '';
-  const model = canUseBrandModelFilter ? String(req.query.model || '').trim() : '';
+  const supportsFactoryFilter = canUseBrandModelFilter;
+  const selectedBrandRaw = normalizeProductFilterOption(req.query.brand || '');
+  const selectedFactoryRaw = supportsFactoryFilter
+    ? normalizeProductFilterOption(req.query.factory || '')
+    : '';
+  const selectedModelRaw = canUseBrandModelFilter ? normalizeProductFilterOption(req.query.model || '') : '';
 
-  const brands = canUseBrandModelFilter
+  const discoveredBrands = db
+    .prepare(
+      `
+        SELECT DISTINCT brand
+        FROM products
+        WHERE is_active = 1 AND category_group = ?
+        ORDER BY brand ASC
+      `
+    )
+    .all(group)
+    .map((row) => normalizeProductFilterOption(row.brand))
+    .filter(Boolean);
+  const configuredBrands = getGroupBrandOptions(selectedGroupConfig);
+  const brands = configuredBrands.length > 0 ? configuredBrands : discoveredBrands;
+
+  const discoveredFactories = supportsFactoryFilter
     ? db
         .prepare(
           `
-            SELECT DISTINCT brand
+            SELECT DISTINCT factory_name
             FROM products
             WHERE is_active = 1 AND category_group = ?
-            ORDER BY brand ASC
+            ORDER BY factory_name ASC
           `
         )
         .all(group)
-        .map((row) => row.brand)
+        .map((row) => normalizeProductFilterOption(row.factory_name))
+        .filter(Boolean)
+    : [];
+  const configuredFactories = getGroupFactoryOptions(selectedGroupConfig);
+  const factories = supportsFactoryFilter
+    ? configuredFactories.length > 0
+      ? configuredFactories
+      : discoveredFactories
     : [];
 
-  const models = brand
+  const brand = brands.some((item) => item.toLowerCase() === selectedBrandRaw.toLowerCase()) ? selectedBrandRaw : '';
+  const factory = factories.some((item) => item.toLowerCase() === selectedFactoryRaw.toLowerCase())
+    ? selectedFactoryRaw
+    : '';
+
+  const models = canUseBrandModelFilter && brand
     ? db
         .prepare(
           `
             SELECT DISTINCT model
             FROM products
             WHERE is_active = 1 AND category_group = ? AND brand = ?
+            ${factory ? 'AND factory_name = ?' : ''}
             ORDER BY model ASC
           `
         )
-        .all(group, brand)
+        .all(...(factory ? [group, brand, factory] : [group, brand]))
         .map((row) => row.model)
     : [];
+  const model = models.some((item) => item.toLowerCase() === selectedModelRaw.toLowerCase()) ? selectedModelRaw : '';
 
   const where = ['is_active = 1', 'category_group = ?'];
   const params = [group];
@@ -2977,6 +3137,11 @@ app.get('/shop', (req, res) => {
   if (brand) {
     where.push('brand = ?');
     params.push(brand);
+  }
+
+  if (factory) {
+    where.push('factory_name = ?');
+    params.push(factory);
   }
 
   if (model) {
@@ -3015,10 +3180,13 @@ app.get('/shop', (req, res) => {
     productGroupConfigs,
     selectedGroupConfig,
     supportsBrandModelFilter: canUseBrandModelFilter,
+    supportsFactoryFilter,
     groupLabelMap: getProductGroupLabels(productGroupConfigs, res.locals.ctx.lang),
     brand,
+    factory,
     model,
     brands,
+    factories,
     models,
     products
   });
@@ -3134,6 +3302,8 @@ app.get('/shop/item/:id', (req, res) => {
     labelKo: product.category_group,
     labelEn: product.category_group,
     mode: PRODUCT_GROUP_MODE.SIMPLE,
+    brandOptions: [],
+    factoryOptions: [],
     customFields: []
   };
 
@@ -5982,6 +6152,8 @@ function buildAdminDashboardViewData(lang = 'ko', options = {}) {
         labelKo: editRow.category_group,
         labelEn: editRow.category_group,
         mode: PRODUCT_GROUP_MODE.SIMPLE,
+        brandOptions: [],
+        factoryOptions: [],
         customFields: []
       };
       const imageRows = db
@@ -6975,11 +7147,14 @@ app.post('/admin/product-group/add', requireAdmin, (req, res) => {
 
   const useFactoryTemplate =
     templateType === PRODUCT_GROUP_MODE.FACTORY || requestedKey === '공장제' || labelKo === '공장제';
+  const filterSeeds = getDefaultGroupFilterSeeds();
   const nextConfigs = [...configs, {
     key: requestedKey,
     labelKo,
     labelEn,
     mode: useFactoryTemplate ? PRODUCT_GROUP_MODE.FACTORY : PRODUCT_GROUP_MODE.SIMPLE,
+    brandOptions: useFactoryTemplate ? filterSeeds.factory.brandOptions : filterSeeds.simple.brandOptions,
+    factoryOptions: useFactoryTemplate ? filterSeeds.factory.factoryOptions : [],
     customFields: useFactoryTemplate ? getFactoryDefaultFields() : getCompactDefaultFields()
   }];
   setProductGroupConfigs(nextConfigs);
@@ -7165,6 +7340,100 @@ app.post('/admin/product-group/field/remove', requireAdmin, (req, res) => {
   return res.redirect(backPath);
 });
 
+app.post('/admin/product-group/filter/add', requireAdmin, (req, res) => {
+  const backPath = safeBackPath(req, '/admin/menus?section=groups');
+  const groupKey = normalizeProductGroupKey(req.body.groupKey || '');
+  const filterType = String(req.body.filterType || 'brand').trim().toLowerCase();
+  const optionValue = normalizeProductFilterOption(req.body.optionValue || '');
+
+  if (!groupKey || !optionValue) {
+    setFlash(req, 'error', '필터 추가에 필요한 값을 입력해 주세요.');
+    return res.redirect(backPath);
+  }
+
+  if (!['brand', 'factory'].includes(filterType)) {
+    setFlash(req, 'error', '지원되지 않는 필터 타입입니다.');
+    return res.redirect(backPath);
+  }
+
+  const configs = getProductGroupConfigs();
+  const targetIndex = configs.findIndex((group) => group.key === groupKey);
+  if (targetIndex < 0) {
+    setFlash(req, 'error', '분류를 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  const targetGroup = configs[targetIndex];
+  if (filterType === 'factory' && !isFactoryLikeGroup(targetGroup)) {
+    setFlash(req, 'error', '공장 필터는 공장제형 분류에서만 사용할 수 있습니다.');
+    return res.redirect(backPath);
+  }
+
+  const currentList = filterType === 'factory'
+    ? getGroupFactoryOptions(targetGroup)
+    : getGroupBrandOptions(targetGroup);
+  const duplicated = currentList.some((item) => item.toLowerCase() === optionValue.toLowerCase());
+  if (duplicated) {
+    setFlash(req, 'error', '이미 등록된 필터 값입니다.');
+    return res.redirect(backPath);
+  }
+
+  const nextList = [...currentList, optionValue];
+  const nextGroups = [...configs];
+  nextGroups[targetIndex] = {
+    ...targetGroup,
+    ...(filterType === 'factory'
+      ? { factoryOptions: nextList }
+      : { brandOptions: nextList })
+  };
+
+  setProductGroupConfigs(nextGroups);
+  setFlash(req, 'success', filterType === 'factory' ? '공장 필터가 추가되었습니다.' : '브랜드 필터가 추가되었습니다.');
+  return res.redirect(backPath);
+});
+
+app.post('/admin/product-group/filter/remove', requireAdmin, (req, res) => {
+  const backPath = safeBackPath(req, '/admin/menus?section=groups');
+  const groupKey = normalizeProductGroupKey(req.body.groupKey || '');
+  const filterType = String(req.body.filterType || 'brand').trim().toLowerCase();
+  const optionValue = normalizeProductFilterOption(req.body.optionValue || '');
+
+  if (!groupKey || !optionValue || !['brand', 'factory'].includes(filterType)) {
+    setFlash(req, 'error', '필터 삭제 요청값을 확인해 주세요.');
+    return res.redirect(backPath);
+  }
+
+  const configs = getProductGroupConfigs();
+  const targetIndex = configs.findIndex((group) => group.key === groupKey);
+  if (targetIndex < 0) {
+    setFlash(req, 'error', '분류를 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  const targetGroup = configs[targetIndex];
+  const currentList = filterType === 'factory'
+    ? getGroupFactoryOptions(targetGroup)
+    : getGroupBrandOptions(targetGroup);
+  const nextList = currentList.filter((item) => item.toLowerCase() !== optionValue.toLowerCase());
+
+  if (nextList.length === currentList.length) {
+    setFlash(req, 'error', '삭제할 필터 값을 찾을 수 없습니다.');
+    return res.redirect(backPath);
+  }
+
+  const nextGroups = [...configs];
+  nextGroups[targetIndex] = {
+    ...targetGroup,
+    ...(filterType === 'factory'
+      ? { factoryOptions: nextList }
+      : { brandOptions: nextList })
+  };
+
+  setProductGroupConfigs(nextGroups);
+  setFlash(req, 'success', filterType === 'factory' ? '공장 필터가 삭제되었습니다.' : '브랜드 필터가 삭제되었습니다.');
+  return res.redirect(backPath);
+});
+
 app.post(
   '/admin/settings',
   requireAdmin,
@@ -7332,6 +7601,7 @@ app.post(
 app.post('/admin/product/create', requireAdmin, upload.array('images', 20), asyncRoute(async (req, res) => {
   const backPath = safeBackPath(req, '/admin/products?section=upload');
   const productGroupConfigs = getProductGroupConfigs();
+  const defaultFilterSeeds = getDefaultGroupFilterSeeds();
   const fallbackGroupKey = productGroupConfigs[0]?.key || SHOP_PRODUCT_GROUPS[0] || '공장제';
   const productGroupMap = getProductGroupMap(productGroupConfigs);
   const categoryGroupRaw = String(req.body.categoryGroup || fallbackGroupKey).trim();
@@ -7340,6 +7610,8 @@ app.post('/admin/product/create', requireAdmin, upload.array('images', 20), asyn
     labelKo: fallbackGroupKey,
     labelEn: fallbackGroupKey,
     mode: PRODUCT_GROUP_MODE.SIMPLE,
+    brandOptions: defaultFilterSeeds.simple.brandOptions,
+    factoryOptions: [],
     customFields: getGroupDefaultFields({ key: fallbackGroupKey, labelKo: fallbackGroupKey, labelEn: fallbackGroupKey })
   };
   const categoryGroup = selectedGroup.key;
@@ -7448,6 +7720,7 @@ app.post('/admin/product/:id/update', requireAdmin, upload.array('images', 20), 
 
   const productGroupConfigs = getProductGroupConfigs();
   const productGroupMap = getProductGroupMap(productGroupConfigs);
+  const defaultFilterSeeds = getDefaultGroupFilterSeeds();
   const fallbackGroupKey = productGroupConfigs[0]?.key || SHOP_PRODUCT_GROUPS[0] || '공장제';
   const categoryGroupRaw = String(req.body.categoryGroup || fallbackGroupKey).trim();
   const selectedGroup = productGroupMap.get(categoryGroupRaw) || productGroupConfigs[0] || {
@@ -7455,6 +7728,8 @@ app.post('/admin/product/:id/update', requireAdmin, upload.array('images', 20), 
     labelKo: fallbackGroupKey,
     labelEn: fallbackGroupKey,
     mode: PRODUCT_GROUP_MODE.SIMPLE,
+    brandOptions: defaultFilterSeeds.simple.brandOptions,
+    factoryOptions: [],
     customFields: getGroupDefaultFields({ key: fallbackGroupKey, labelKo: fallbackGroupKey, labelEn: fallbackGroupKey })
   };
 
