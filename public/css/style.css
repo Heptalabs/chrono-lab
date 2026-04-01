@@ -84,7 +84,7 @@ body.theme-night {
   --bg: var(--color-black);
   --text: var(--color-white);
   --muted: var(--color-light-gray);
-  --line: var(--color-dark-gray);
+  --line: var(--color-light-gray);
   --card: var(--color-dark-gray);
   --card-dark: var(--color-white);
   --card-dark-text: var(--color-black);
@@ -112,17 +112,44 @@ body.theme-night {
   --detail-secondary-bg-hover: rgba(0, 0, 0, 0.08);
   --btn-primary-bg: var(--color-white);
   --btn-primary-text: var(--color-black);
-  --btn-primary-border: var(--color-white);
+  --btn-primary-border: var(--color-dark-gray);
   --btn-primary-bg-hover: var(--color-light-gray);
   --btn-primary-text-hover: var(--color-black);
-  --btn-secondary-bg: var(--color-light-gray);
+  --btn-secondary-bg: var(--color-white);
   --btn-secondary-text: var(--color-black);
-  --btn-secondary-border: var(--color-white);
+  --btn-secondary-border: var(--color-dark-gray);
   --btn-secondary-bg-hover: var(--color-white);
   --btn-secondary-text-hover: var(--color-black);
   --focus-ring: rgba(243, 244, 246, 0.36);
   --error-text: var(--color-light-gray);
   --shadow: 0 18px 34px rgba(0, 0, 0, 0.42);
+}
+
+body.theme-night input,
+body.theme-night select,
+body.theme-night textarea {
+  border-color: var(--line);
+  background: var(--color-navy);
+  color: var(--color-light-gray);
+}
+
+body.theme-night input::placeholder,
+body.theme-night textarea::placeholder {
+  color: rgba(243, 244, 246, 0.78);
+}
+
+body.theme-night input[type='file'] {
+  background: var(--card);
+  color: var(--text);
+}
+
+body.theme-night input[type='file']::file-selector-button {
+  border: 1px solid var(--line);
+  background: var(--chip);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  margin-right: 8px;
 }
 
 a {

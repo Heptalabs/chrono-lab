@@ -127,7 +127,7 @@ const DEFAULT_THEME_COLORS = Object.freeze({
     backgroundColor: '#000000',
     textColor: '#ffffff',
     mutedColor: '#f3f4f6',
-    lineColor: '#4b5563',
+    lineColor: '#f3f4f6',
     cardColor: '#4b5563',
     cardDarkColor: '#ffffff',
     cardDarkTextColor: '#000000',
@@ -1800,7 +1800,7 @@ function getThemeColorConfig(themeMode = 'day') {
   const legacyHeader = clampHexToThemePalette(getSetting('headerColor', defaults.headerColor), defaults.headerColor);
   const legacyBg = clampHexToThemePalette(getSetting('backgroundValue', defaults.backgroundColor), defaults.backgroundColor);
 
-  return {
+  const resolved = {
     headerColor: clampHexToThemePalette(getSetting(`${key}HeaderColor`, legacyHeader), defaults.headerColor),
     backgroundColor: clampHexToThemePalette(getSetting(`${key}BackgroundColor`, legacyBg), defaults.backgroundColor),
     textColor: clampHexToThemePalette(getSetting(`${key}TextColor`, defaults.textColor), defaults.textColor),
@@ -1814,6 +1814,19 @@ function getThemeColorConfig(themeMode = 'day') {
     ),
     chipColor: clampHexToThemePalette(getSetting(`${key}ChipColor`, defaults.chipColor), defaults.chipColor)
   };
+
+  // Guardrail: keep contrast sane even if saved palette combinations clash.
+  if (resolved.lineColor === resolved.cardColor || resolved.lineColor === resolved.backgroundColor) {
+    resolved.lineColor = defaults.lineColor;
+  }
+  if (resolved.textColor === resolved.backgroundColor || resolved.textColor === resolved.cardColor) {
+    resolved.textColor = defaults.textColor;
+  }
+  if (resolved.cardDarkTextColor === resolved.cardDarkColor) {
+    resolved.cardDarkTextColor = defaults.cardDarkTextColor;
+  }
+
+  return resolved;
 }
 
 function getThemeAssetConfig(themeMode = 'day') {
