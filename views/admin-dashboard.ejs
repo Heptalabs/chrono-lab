@@ -90,7 +90,7 @@
   const securityTab = ['profile', 'admins', 'logs', 'alerts'].includes(String(securitySection || ''))
     ? String(securitySection)
     : 'profile';
-  const menusTab = ['public', 'groups', 'fields'].includes(String(menuSection || ''))
+  const menusTab = ['public', 'groups', 'group-filters', 'fields'].includes(String(menuSection || ''))
     ? String(menuSection)
     : 'public';
   const productsTab = ['upload', 'list'].includes(String(productSection || ''))
@@ -1240,7 +1240,8 @@
     <h3><%= isEn ? 'Menu Manager' : '메뉴 관리' %></h3>
     <div class="security-subnav">
       <a href="/admin/menus?section=public" class="menu-pill <%= menusTab === 'public' ? 'active' : '' %>"><%= isEn ? 'Public Menus' : '공개 메뉴' %></a>
-      <a href="/admin/menus?section=groups" class="menu-pill <%= menusTab === 'groups' ? 'active' : '' %>"><%= isEn ? 'Shop Categories' : '쇼핑몰 분류' %></a>
+      <a href="/admin/menus?section=groups" class="menu-pill <%= menusTab === 'groups' ? 'active' : '' %>"><%= isEn ? 'Category Manager' : '분류 관리' %></a>
+      <a href="/admin/menus?section=group-filters" class="menu-pill <%= menusTab === 'group-filters' ? 'active' : '' %>"><%= isEn ? 'Category Filters' : '분류 필터' %></a>
       <a href="/admin/menus?section=fields" class="menu-pill <%= menusTab === 'fields' ? 'active' : '' %>"><%= isEn ? 'Upload Fields' : '업로드 항목' %></a>
     </div>
 
@@ -1301,7 +1302,7 @@
     <% if (menusTab === 'groups') { %>
       <div class="menu-manage-stack">
         <p class="muted-label menu-manage-note">
-          <%= isEn ? 'Add or remove shop top categories. Each category can have its own upload fields.' : '쇼핑몰 상위 분류를 추가/삭제할 수 있고, 분류별 업로드 항목은 별도 탭에서 관리합니다.' %>
+          <%= isEn ? 'Add or remove shop top categories. Category filter settings are managed in the Category Filters tab.' : '쇼핑몰 상위 분류를 추가/삭제할 수 있습니다. 브랜드/공장 필터는 분류 필터 탭에서 관리합니다.' %>
         </p>
         <form method="post" action="/admin/product-group/add" class="form-grid menu-manage-form">
           <label><%= isEn ? 'Category Key (optional)' : '분류 키 (선택)' %>
@@ -1324,11 +1325,6 @@
 
         <div class="admin-list menu-manage-list">
           <% productGroupConfigList.forEach((group) => { %>
-            <%
-              const brandFilters = Array.isArray(group.brandOptions) ? group.brandOptions : [];
-              const factoryFilters = Array.isArray(group.factoryOptions) ? group.factoryOptions : [];
-              const isFactoryGroup = String(group.mode || '').toLowerCase() === 'factory' || group.key === '공장제';
-            %>
             <div class="admin-list-item">
               <div class="menu-manage-item-row">
                 <div class="menu-manage-item-copy">
@@ -1342,6 +1338,35 @@
                       <button type="submit" class="chip"><%= isEn ? 'Delete Category' : '분류 삭제' %></button>
                     </form>
                   <% } %>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (menusTab === 'group-filters') { %>
+      <div class="menu-manage-stack">
+        <p class="muted-label menu-manage-note">
+          <%= isEn ? 'Manage category-level brand/factory filters used by shop search and product upload dropdowns.' : '쇼핑몰 검색 필터와 상품 업로드 드롭다운에서 사용할 분류별 브랜드/공장 필터를 관리합니다.' %>
+        </p>
+
+        <div class="admin-list menu-manage-list">
+          <% productGroupConfigList.forEach((group) => { %>
+            <%
+              const brandFilters = Array.isArray(group.brandOptions) ? group.brandOptions : [];
+              const factoryFilters = Array.isArray(group.factoryOptions) ? group.factoryOptions : [];
+              const supportsFactoryFilterGroup =
+                String(group.key || '').trim() === '공장제' ||
+                String(group.key || '').trim() === '현지중고' ||
+                factoryFilters.length > 0;
+            %>
+            <div class="admin-list-item">
+              <div class="menu-manage-item-row">
+                <div class="menu-manage-item-copy">
+                  <strong><%= group.labelKo || group.key %> / <%= group.labelEn || group.key %></strong>
+                  <span><%= isEn ? 'Key' : '키' %>: <code><%= group.key %></code></span>
                 </div>
               </div>
 
@@ -1378,7 +1403,7 @@
                   </form>
                 </section>
 
-                <% if (isFactoryGroup) { %>
+                <% if (supportsFactoryFilterGroup) { %>
                   <section class="kpi-card">
                     <h4><%= isEn ? 'Factory Filters' : '공장 필터' %></h4>
                     <% if (factoryFilters.length === 0) { %>
@@ -1617,7 +1642,11 @@
             <%
               const groupBrandOptions = Array.isArray(group.brandOptions) ? group.brandOptions : [];
               const groupFactoryOptions = Array.isArray(group.factoryOptions) ? group.factoryOptions : [];
-              const isFactoryGroup = String(group.mode || '').toLowerCase() === 'factory' || group.key === '공장제';
+              const supportsFactorySelectionGroup =
+                String(group.mode || '').toLowerCase() === 'factory' ||
+                String(group.key || '').trim() === '공장제' ||
+                String(group.key || '').trim() === '현지중고' ||
+                groupFactoryOptions.length > 0;
               const editBrandValue =
                 editingItem && editingItem.category_group === group.key ? String(editingItem.brand || '').trim() : '';
               const editFactoryValue =
@@ -1664,7 +1693,7 @@
               </select>
             </label>
 
-            <% if (isFactoryGroup) { %>
+            <% if (supportsFactorySelectionGroup) { %>
               <label>
                 <%= isEn ? 'Factory Filter' : '공장 필터' %>
                 <select

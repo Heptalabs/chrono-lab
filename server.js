@@ -392,10 +392,10 @@ function getGroupBrandOptions(groupConfig = null) {
 }
 
 function getGroupFactoryOptions(groupConfig = null) {
-  if (!isFactoryLikeGroup(groupConfig)) {
+  if (!groupConfig || typeof groupConfig !== 'object') {
     return [];
   }
-  return normalizeProductFilterOptionList(groupConfig?.factoryOptions);
+  return normalizeProductFilterOptionList(groupConfig.factoryOptions);
 }
 
 function getDefaultGroupFilterSeeds() {
@@ -754,10 +754,9 @@ function normalizeProductGroupConfigs(rawValue) {
     const brandOptions = hasExplicitBrandOptions
       ? normalizeProductFilterOptionList(group.brandOptions)
       : fallbackBrandOptions;
-    const factoryOptionsRaw = hasExplicitFactoryOptions
+    const factoryOptions = hasExplicitFactoryOptions
       ? normalizeProductFilterOptionList(group.factoryOptions)
       : fallbackFactoryOptions;
-    const factoryOptions = mode === PRODUCT_GROUP_MODE.FACTORY ? factoryOptionsRaw : [];
 
     normalizedGroups.push({
       key,
@@ -1485,7 +1484,7 @@ function parseSecurityQuery(query = {}) {
 
 function normalizeMenuManageSection(rawSection = '') {
   const section = String(rawSection || '').trim().toLowerCase();
-  if (section === 'groups' || section === 'fields') {
+  if (section === 'groups' || section === 'group-filters' || section === 'fields') {
     return section;
   }
   return 'public';
@@ -2398,7 +2397,7 @@ function buildAdminProductSubmission(rawBody, groupConfig) {
     fieldValues.brand = selectedBrandOption;
   }
 
-  if (isFactoryLikeGroup(safeGroupConfig) && factoryOptions.length > 0) {
+  if (factoryOptions.length > 0) {
     if (!selectedFactoryOption) {
       return {
         error: '공장 필터를 선택해 주세요.'
@@ -3080,7 +3079,12 @@ app.get('/shop', (req, res) => {
     customFields: []
   };
   const canUseBrandModelFilter = isFactoryLikeGroup(selectedGroupConfig);
-  const supportsFactoryFilter = canUseBrandModelFilter;
+  const groupFactorySeedOptions = getGroupFactoryOptions(selectedGroupConfig);
+  const supportsFactoryFilter = (
+    canUseBrandModelFilter ||
+    groupFactorySeedOptions.length > 0 ||
+    String(group || '').trim() === '현지중고'
+  );
   const selectedBrandRaw = normalizeProductFilterOption(req.query.brand || '');
   const selectedFactoryRaw = supportsFactoryFilter
     ? normalizeProductFilterOption(req.query.factory || '')
@@ -3116,7 +3120,7 @@ app.get('/shop', (req, res) => {
         .map((row) => normalizeProductFilterOption(row.factory_name))
         .filter(Boolean)
     : [];
-  const configuredFactories = getGroupFactoryOptions(selectedGroupConfig);
+  const configuredFactories = groupFactorySeedOptions;
   const factories = supportsFactoryFilter
     ? configuredFactories.length > 0
       ? configuredFactories
@@ -7354,7 +7358,7 @@ app.post('/admin/product-group/field/remove', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/product-group/filter/add', requireAdmin, (req, res) => {
-  const backPath = safeBackPath(req, '/admin/menus?section=groups');
+  const backPath = safeBackPath(req, '/admin/menus?section=group-filters');
   const groupKey = normalizeProductGroupKey(req.body.groupKey || '');
   const filterType = String(req.body.filterType || 'brand').trim().toLowerCase();
   const optionValue = normalizeProductFilterOption(req.body.optionValue || '');
@@ -7377,11 +7381,6 @@ app.post('/admin/product-group/filter/add', requireAdmin, (req, res) => {
   }
 
   const targetGroup = configs[targetIndex];
-  if (filterType === 'factory' && !isFactoryLikeGroup(targetGroup)) {
-    setFlash(req, 'error', '공장 필터는 공장제형 분류에서만 사용할 수 있습니다.');
-    return res.redirect(backPath);
-  }
-
   const currentList = filterType === 'factory'
     ? getGroupFactoryOptions(targetGroup)
     : getGroupBrandOptions(targetGroup);
@@ -7406,7 +7405,7 @@ app.post('/admin/product-group/filter/add', requireAdmin, (req, res) => {
 });
 
 app.post('/admin/product-group/filter/remove', requireAdmin, (req, res) => {
-  const backPath = safeBackPath(req, '/admin/menus?section=groups');
+  const backPath = safeBackPath(req, '/admin/menus?section=group-filters');
   const groupKey = normalizeProductGroupKey(req.body.groupKey || '');
   const filterType = String(req.body.filterType || 'brand').trim().toLowerCase();
   const optionValue = normalizeProductFilterOption(req.body.optionValue || '');
