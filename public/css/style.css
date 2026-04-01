@@ -1551,6 +1551,23 @@ body.theme-night .watermark-preview-canvas {
   color: var(--text);
 }
 
+.site-settings-subnav {
+  margin-bottom: 12px;
+}
+
+.theme-settings-grid-wrap {
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.theme-settings-grid {
+  min-width: 740px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
 .check-row {
   display: flex !important;
   align-items: center;

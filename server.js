@@ -1490,6 +1490,14 @@ function normalizeMenuManageSection(rawSection = '') {
   return 'public';
 }
 
+function normalizeSiteManageSection(rawSection = '') {
+  const section = String(rawSection || '').trim().toLowerCase();
+  if (section === 'theme') {
+    return 'theme';
+  }
+  return 'basic';
+}
+
 function normalizeProductManageSection(rawSection = '') {
   const section = String(rawSection || '').trim().toLowerCase();
   if (section === 'list') {
@@ -6362,6 +6370,7 @@ function renderAdminDashboard(req, res, activeTab, extraData = {}) {
     activeTab,
     securitySection: normalizeSecuritySection(extraData.securitySection),
     securityAccessDenied: Boolean(extraData.securityAccessDenied),
+    siteSection: normalizeSiteManageSection(extraData.siteSection || req.query.section || ''),
     menuSection: normalizeMenuManageSection(extraData.menuSection || ''),
     productSection: normalizeProductManageSection(extraData.productSection || ''),
     noticeSection: normalizeContentManageSection(extraData.noticeSection || req.query.section || ''),
@@ -6976,7 +6985,11 @@ app.post('/admin/member/:id/unblock', requireAdmin, (req, res) => {
   return res.redirect(backPath);
 });
 
-app.get('/admin/site', requireAdmin, (req, res) => renderAdminDashboard(req, res, 'site'));
+app.get('/admin/site', requireAdmin, (req, res) =>
+  renderAdminDashboard(req, res, 'site', {
+    siteSection: normalizeSiteManageSection(req.query.section || '')
+  })
+);
 app.get('/admin/menus', requireAdmin, (req, res) =>
   renderAdminDashboard(req, res, 'menus', {
     menuSection: normalizeMenuManageSection(req.query.section || '')
@@ -7464,8 +7477,70 @@ app.post(
     { name: 'backgroundImage', maxCount: 1 }
   ]),
   (req, res) => {
-    const backPath = safeBackPath(req, '/admin/site');
-    const siteName = String(req.body.siteName || 'Chrono Lab').trim();
+    const hasThemePayload = [
+      req.body.dayHeaderColor,
+      req.body.dayBackgroundColor,
+      req.body.nightHeaderColor,
+      req.body.nightBackgroundColor,
+      req.body.dayBackgroundType,
+      req.body.nightBackgroundType,
+      req.files?.dayHeaderLogo?.[0],
+      req.files?.nightHeaderLogo?.[0],
+      req.files?.dayHeaderSymbol?.[0],
+      req.files?.nightHeaderSymbol?.[0],
+      req.files?.dayFooterLogo?.[0],
+      req.files?.nightFooterLogo?.[0],
+      req.files?.dayBackgroundImage?.[0],
+      req.files?.nightBackgroundImage?.[0],
+      req.files?.headerLogo?.[0],
+      req.files?.headerSymbol?.[0],
+      req.files?.footerLogo?.[0],
+      req.files?.backgroundImage?.[0]
+    ].some(Boolean);
+    const settingsSection = normalizeSiteManageSection(
+      req.body.settingsSection || req.query.section || (hasThemePayload ? 'theme' : 'basic')
+    );
+    const backPath = safeBackPath(req, `/admin/site?section=${settingsSection}`);
+
+    if (settingsSection === 'basic') {
+      const siteName = String(req.body.siteName || getSetting('siteName', 'Chrono Lab')).trim();
+      const bankAccountInfo = String(req.body.bankAccountInfo || '').trim();
+      const signupBonusPoints = parseNonNegativeInt(req.body.signupBonusPoints, 0);
+      const purchasePointRate = parsePointRate(req.body.purchasePointRate, 0);
+      const contactInfo = String(req.body.contactInfo || '').trim();
+      const businessInfo = String(req.body.businessInfo || '').trim();
+      const languageDefault = resolveLanguage(req.body.languageDefault || getSetting('languageDefault', 'ko'), 'ko');
+
+      setSetting('siteName', siteName || 'Chrono Lab');
+      setSetting('bankAccountInfo', bankAccountInfo);
+      setSetting('signupBonusPoints', signupBonusPoints);
+      setSetting('purchasePointRate', purchasePointRate);
+      setSetting('contactInfo', contactInfo);
+      setSetting('businessInfo', businessInfo);
+      setSetting('languageDefault', languageDefault);
+
+      if (typeof req.body.menusJson === 'string') {
+        try {
+          const parsedMenus = parseMenus(req.body.menusJson, { includeHidden: true });
+          if (!parsedMenus.some((menu) => !menu.isHidden)) {
+            setFlash(req, 'error', '표시 상태 메뉴를 최소 1개 이상 유지해 주세요.');
+            return res.redirect(backPath);
+          }
+          setSetting('menus', JSON.stringify(parsedMenus));
+        } catch {
+          setFlash(req, 'error', '메뉴 JSON 형식이 올바르지 않습니다.');
+          return res.redirect(backPath);
+        }
+      }
+
+      setFlash(req, 'success', '기본 설정이 저장되었습니다.');
+      return res.redirect(backPath);
+    }
+
+    const dayThemeDefaults = DEFAULT_THEME_COLORS.day;
+    const nightThemeDefaults = DEFAULT_THEME_COLORS.night;
+    const dayThemeCurrent = getThemeColorConfig('day');
+    const nightThemeCurrent = getThemeColorConfig('night');
     const dayBackgroundType = String(
       req.body.dayBackgroundType || req.body.backgroundType || getSetting('dayBackgroundType', 'color')
     ).trim() === 'image'
@@ -7476,52 +7551,81 @@ app.post(
     ).trim() === 'image'
       ? 'image'
       : 'color';
-    const dayThemeDefaults = DEFAULT_THEME_COLORS.day;
-    const nightThemeDefaults = DEFAULT_THEME_COLORS.night;
 
     const dayHeaderColor = clampHexToThemePalette(
-      req.body.dayHeaderColor || req.body.headerColor || '',
+      req.body.dayHeaderColor || req.body.headerColor || dayThemeCurrent.headerColor || dayThemeDefaults.headerColor,
       dayThemeDefaults.headerColor
     );
     const dayBackgroundColor = clampHexToThemePalette(
-      req.body.dayBackgroundColor || req.body.backgroundColor || '',
+      req.body.dayBackgroundColor || req.body.backgroundColor || dayThemeCurrent.backgroundColor || dayThemeDefaults.backgroundColor,
       dayThemeDefaults.backgroundColor
     );
-    const dayTextColor = clampHexToThemePalette(req.body.dayTextColor || '', dayThemeDefaults.textColor);
-    const dayMutedColor = clampHexToThemePalette(req.body.dayMutedColor || '', dayThemeDefaults.mutedColor);
-    const dayLineColor = clampHexToThemePalette(req.body.dayLineColor || '', dayThemeDefaults.lineColor);
-    const dayCardColor = clampHexToThemePalette(req.body.dayCardColor || '', dayThemeDefaults.cardColor);
-    const dayCardDarkColor = clampHexToThemePalette(req.body.dayCardDarkColor || '', dayThemeDefaults.cardDarkColor);
+    const dayTextColor = clampHexToThemePalette(
+      req.body.dayTextColor || dayThemeCurrent.textColor || dayThemeDefaults.textColor,
+      dayThemeDefaults.textColor
+    );
+    const dayMutedColor = clampHexToThemePalette(
+      req.body.dayMutedColor || dayThemeCurrent.mutedColor || dayThemeDefaults.mutedColor,
+      dayThemeDefaults.mutedColor
+    );
+    const dayLineColor = clampHexToThemePalette(
+      req.body.dayLineColor || dayThemeCurrent.lineColor || dayThemeDefaults.lineColor,
+      dayThemeDefaults.lineColor
+    );
+    const dayCardColor = clampHexToThemePalette(
+      req.body.dayCardColor || dayThemeCurrent.cardColor || dayThemeDefaults.cardColor,
+      dayThemeDefaults.cardColor
+    );
+    const dayCardDarkColor = clampHexToThemePalette(
+      req.body.dayCardDarkColor || dayThemeCurrent.cardDarkColor || dayThemeDefaults.cardDarkColor,
+      dayThemeDefaults.cardDarkColor
+    );
     const dayCardDarkTextColor = clampHexToThemePalette(
-      req.body.dayCardDarkTextColor || '',
+      req.body.dayCardDarkTextColor || dayThemeCurrent.cardDarkTextColor || dayThemeDefaults.cardDarkTextColor,
       dayThemeDefaults.cardDarkTextColor
     );
-    const dayChipColor = clampHexToThemePalette(req.body.dayChipColor || '', dayThemeDefaults.chipColor);
+    const dayChipColor = clampHexToThemePalette(
+      req.body.dayChipColor || dayThemeCurrent.chipColor || dayThemeDefaults.chipColor,
+      dayThemeDefaults.chipColor
+    );
 
-    const nightHeaderColor = clampHexToThemePalette(req.body.nightHeaderColor || '', nightThemeDefaults.headerColor);
+    const nightHeaderColor = clampHexToThemePalette(
+      req.body.nightHeaderColor || nightThemeCurrent.headerColor || nightThemeDefaults.headerColor,
+      nightThemeDefaults.headerColor
+    );
     const nightBackgroundColor = clampHexToThemePalette(
-      req.body.nightBackgroundColor || '',
+      req.body.nightBackgroundColor || nightThemeCurrent.backgroundColor || nightThemeDefaults.backgroundColor,
       nightThemeDefaults.backgroundColor
     );
-    const nightTextColor = clampHexToThemePalette(req.body.nightTextColor || '', nightThemeDefaults.textColor);
-    const nightMutedColor = clampHexToThemePalette(req.body.nightMutedColor || '', nightThemeDefaults.mutedColor);
-    const nightLineColor = clampHexToThemePalette(req.body.nightLineColor || '', nightThemeDefaults.lineColor);
-    const nightCardColor = clampHexToThemePalette(req.body.nightCardColor || '', nightThemeDefaults.cardColor);
-    const nightCardDarkColor = clampHexToThemePalette(req.body.nightCardDarkColor || '', nightThemeDefaults.cardDarkColor);
+    const nightTextColor = clampHexToThemePalette(
+      req.body.nightTextColor || nightThemeCurrent.textColor || nightThemeDefaults.textColor,
+      nightThemeDefaults.textColor
+    );
+    const nightMutedColor = clampHexToThemePalette(
+      req.body.nightMutedColor || nightThemeCurrent.mutedColor || nightThemeDefaults.mutedColor,
+      nightThemeDefaults.mutedColor
+    );
+    const nightLineColor = clampHexToThemePalette(
+      req.body.nightLineColor || nightThemeCurrent.lineColor || nightThemeDefaults.lineColor,
+      nightThemeDefaults.lineColor
+    );
+    const nightCardColor = clampHexToThemePalette(
+      req.body.nightCardColor || nightThemeCurrent.cardColor || nightThemeDefaults.cardColor,
+      nightThemeDefaults.cardColor
+    );
+    const nightCardDarkColor = clampHexToThemePalette(
+      req.body.nightCardDarkColor || nightThemeCurrent.cardDarkColor || nightThemeDefaults.cardDarkColor,
+      nightThemeDefaults.cardDarkColor
+    );
     const nightCardDarkTextColor = clampHexToThemePalette(
-      req.body.nightCardDarkTextColor || '',
+      req.body.nightCardDarkTextColor || nightThemeCurrent.cardDarkTextColor || nightThemeDefaults.cardDarkTextColor,
       nightThemeDefaults.cardDarkTextColor
     );
-    const nightChipColor = clampHexToThemePalette(req.body.nightChipColor || '', nightThemeDefaults.chipColor);
+    const nightChipColor = clampHexToThemePalette(
+      req.body.nightChipColor || nightThemeCurrent.chipColor || nightThemeDefaults.chipColor,
+      nightThemeDefaults.chipColor
+    );
 
-    const bankAccountInfo = String(req.body.bankAccountInfo || '').trim();
-    const signupBonusPoints = parseNonNegativeInt(req.body.signupBonusPoints, 0);
-    const purchasePointRate = parsePointRate(req.body.purchasePointRate, 0);
-    const contactInfo = String(req.body.contactInfo || '').trim();
-    const businessInfo = String(req.body.businessInfo || '').trim();
-    const languageDefault = resolveLanguage(req.body.languageDefault || 'ko', 'ko');
-
-    setSetting('siteName', siteName || 'Chrono Lab');
     setSetting('dayHeaderColor', dayHeaderColor);
     setSetting('dayBackgroundColor', dayBackgroundColor);
     setSetting('dayTextColor', dayTextColor);
@@ -7544,29 +7648,6 @@ app.post(
 
     setSetting('dayBackgroundType', dayBackgroundType);
     setSetting('nightBackgroundType', nightBackgroundType);
-
-    // Backward-compatible legacy keys
-    setSetting('headerColor', dayHeaderColor);
-    setSetting('bankAccountInfo', bankAccountInfo);
-    setSetting('signupBonusPoints', signupBonusPoints);
-    setSetting('purchasePointRate', purchasePointRate);
-    setSetting('contactInfo', contactInfo);
-    setSetting('businessInfo', businessInfo);
-    setSetting('languageDefault', languageDefault);
-
-    if (req.body.menusJson) {
-      try {
-        const parsedMenus = parseMenus(req.body.menusJson, { includeHidden: true });
-        if (!parsedMenus.some((menu) => !menu.isHidden)) {
-          setFlash(req, 'error', '표시 상태 메뉴를 최소 1개 이상 유지해 주세요.');
-          return res.redirect(backPath);
-        }
-        setSetting('menus', JSON.stringify(parsedMenus));
-      } catch {
-        setFlash(req, 'error', '메뉴 JSON 형식이 올바르지 않습니다.');
-        return res.redirect(backPath);
-      }
-    }
 
     const dayHeaderLogoFile = req.files?.dayHeaderLogo?.[0] || req.files?.headerLogo?.[0];
     const nightHeaderLogoFile = req.files?.nightHeaderLogo?.[0];
@@ -7594,6 +7675,7 @@ app.post(
     }
 
     // Legacy aliases keep old code/data compatible
+    setSetting('headerColor', dayHeaderColor);
     setSetting('headerLogoPath', getSetting('dayHeaderLogoPath', ''));
     setSetting('headerSymbolPath', getSetting('dayHeaderSymbolPath', ''));
     setSetting('footerLogoPath', getSetting('dayFooterLogoPath', ''));
@@ -7605,8 +7687,8 @@ app.post(
         : dayBackgroundColor
     );
 
-    setFlash(req, 'success', '사이트 설정이 저장되었습니다.');
-    res.redirect(backPath);
+    setFlash(req, 'success', '테마 설정이 저장되었습니다.');
+    return res.redirect(backPath);
   }
 );
 

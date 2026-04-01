@@ -93,6 +93,7 @@
   const menusTab = ['public', 'groups', 'group-filters', 'fields'].includes(String(menuSection || ''))
     ? String(menuSection)
     : 'public';
+  const siteTab = String(siteSection || '') === 'theme' ? 'theme' : 'basic';
   const productsTab = ['upload', 'list'].includes(String(productSection || ''))
     ? String(productSection)
     : 'upload';
@@ -1059,132 +1060,18 @@
   %>
   <article class="block-card">
     <h3><%= isEn ? 'Site Customization' : '사이트 커스터마이징' %></h3>
+    <div class="security-subnav site-settings-subnav">
+      <a href="/admin/site?section=basic" class="menu-pill <%= siteTab === 'basic' ? 'active' : '' %>"><%= isEn ? 'Basic Settings' : '기본설정' %></a>
+      <a href="/admin/site?section=theme" class="menu-pill <%= siteTab === 'theme' ? 'active' : '' %>"><%= isEn ? 'Theme Settings' : '테마설정' %></a>
+    </div>
+
+    <% if (siteTab === 'basic') { %>
     <form method="post" action="/admin/settings" enctype="multipart/form-data" class="form-grid">
+      <input type="hidden" name="settingsSection" value="basic" />
+
       <label><%= isEn ? 'Site Name' : '쇼핑몰 이름' %>
         <input type="text" name="siteName" value="<%= settings.siteName %>" />
       </label>
-
-      <fieldset class="theme-color-fieldset">
-        <legend><%= isEn ? 'Day Mode Colors' : '데이 모드 컬러' %></legend>
-        <label><%= isEn ? 'Header Color' : '헤더 컬러' %>
-          <input type="color" name="dayHeaderColor" value="<%= dayThemeColors.headerColor || '#0f172a' %>" />
-        </label>
-        <label><%= isEn ? 'Background Color' : '배경 컬러' %>
-          <input type="color" name="dayBackgroundColor" value="<%= dayThemeColors.backgroundColor || '#f3f4f6' %>" />
-        </label>
-        <label><%= isEn ? 'Text Color' : '본문 텍스트 컬러' %>
-          <input type="color" name="dayTextColor" value="<%= dayThemeColors.textColor || '#000000' %>" />
-        </label>
-        <label><%= isEn ? 'Muted Text Color' : '보조 텍스트 컬러' %>
-          <input type="color" name="dayMutedColor" value="<%= dayThemeColors.mutedColor || '#4b5563' %>" />
-        </label>
-        <label><%= isEn ? 'Border Line Color' : '라인/보더 컬러' %>
-          <input type="color" name="dayLineColor" value="<%= dayThemeColors.lineColor || '#f3f4f6' %>" />
-        </label>
-        <label><%= isEn ? 'Card Color' : '카드 배경 컬러' %>
-          <input type="color" name="dayCardColor" value="<%= dayThemeColors.cardColor || '#ffffff' %>" />
-        </label>
-        <label><%= isEn ? 'Dark Card Color' : '강조 카드 컬러' %>
-          <input type="color" name="dayCardDarkColor" value="<%= dayThemeColors.cardDarkColor || '#0f172a' %>" />
-        </label>
-        <label><%= isEn ? 'Dark Card Text Color' : '강조 카드 텍스트 컬러' %>
-          <input type="color" name="dayCardDarkTextColor" value="<%= dayThemeColors.cardDarkTextColor || '#f3f4f6' %>" />
-        </label>
-        <label><%= isEn ? 'Chip/Control Fill' : '칩/컨트롤 배경 컬러' %>
-          <input type="color" name="dayChipColor" value="<%= dayThemeColors.chipColor || '#f3f4f6' %>" />
-        </label>
-        <label><%= isEn ? 'Background Type' : '배경 타입' %>
-          <select name="dayBackgroundType">
-            <option value="color" <%= (dayThemeAssets.backgroundType || 'color') === 'color' ? 'selected' : '' %>><%= isEn ? 'Color' : '컬러' %></option>
-            <option value="image" <%= (dayThemeAssets.backgroundType || 'color') === 'image' ? 'selected' : '' %>><%= isEn ? 'Image' : '이미지' %></option>
-          </select>
-        </label>
-        <label><%= isEn ? 'Background Image Upload (Day)' : '배경 이미지 업로드 (데이)' %>
-          <input type="file" name="dayBackgroundImage" accept="image/*" />
-          <% if (dayThemeAssets.backgroundImagePath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.backgroundImagePath %></code></small>
-          <% } %>
-        </label>
-        <label><%= isEn ? 'Header Symbol Upload (Day)' : '헤더 심볼 업로드 (데이)' %>
-          <input type="file" name="dayHeaderSymbol" accept="image/*" />
-          <% if (dayThemeAssets.headerSymbolPath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.headerSymbolPath %></code></small>
-          <% } %>
-        </label>
-        <label><%= isEn ? 'Header Logo Upload (Day)' : '헤더 로고 업로드 (데이)' %>
-          <input type="file" name="dayHeaderLogo" accept="image/*" />
-          <% if (dayThemeAssets.headerLogoPath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.headerLogoPath %></code></small>
-          <% } %>
-        </label>
-        <label><%= isEn ? 'Footer Logo Upload (Day)' : '푸터 로고 업로드 (데이)' %>
-          <input type="file" name="dayFooterLogo" accept="image/*" />
-          <% if (dayThemeAssets.footerLogoPath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.footerLogoPath %></code></small>
-          <% } %>
-        </label>
-      </fieldset>
-
-      <fieldset class="theme-color-fieldset">
-        <legend><%= isEn ? 'Night Mode Colors' : '나이트 모드 컬러' %></legend>
-        <label><%= isEn ? 'Header Color' : '헤더 컬러' %>
-          <input type="color" name="nightHeaderColor" value="<%= nightThemeColors.headerColor || '#000000' %>" />
-        </label>
-        <label><%= isEn ? 'Background Color' : '배경 컬러' %>
-          <input type="color" name="nightBackgroundColor" value="<%= nightThemeColors.backgroundColor || '#000000' %>" />
-        </label>
-        <label><%= isEn ? 'Text Color' : '본문 텍스트 컬러' %>
-          <input type="color" name="nightTextColor" value="<%= nightThemeColors.textColor || '#ffffff' %>" />
-        </label>
-        <label><%= isEn ? 'Muted Text Color' : '보조 텍스트 컬러' %>
-          <input type="color" name="nightMutedColor" value="<%= nightThemeColors.mutedColor || '#f3f4f6' %>" />
-        </label>
-        <label><%= isEn ? 'Border Line Color' : '라인/보더 컬러' %>
-          <input type="color" name="nightLineColor" value="<%= nightThemeColors.lineColor || '#4b5563' %>" />
-        </label>
-        <label><%= isEn ? 'Card Color' : '카드 배경 컬러' %>
-          <input type="color" name="nightCardColor" value="<%= nightThemeColors.cardColor || '#4b5563' %>" />
-        </label>
-        <label><%= isEn ? 'Dark Card Color' : '강조 카드 컬러' %>
-          <input type="color" name="nightCardDarkColor" value="<%= nightThemeColors.cardDarkColor || '#ffffff' %>" />
-        </label>
-        <label><%= isEn ? 'Dark Card Text Color' : '강조 카드 텍스트 컬러' %>
-          <input type="color" name="nightCardDarkTextColor" value="<%= nightThemeColors.cardDarkTextColor || '#000000' %>" />
-        </label>
-        <label><%= isEn ? 'Chip/Control Fill' : '칩/컨트롤 배경 컬러' %>
-          <input type="color" name="nightChipColor" value="<%= nightThemeColors.chipColor || '#0f172a' %>" />
-        </label>
-        <label><%= isEn ? 'Background Type' : '배경 타입' %>
-          <select name="nightBackgroundType">
-            <option value="color" <%= (nightThemeAssets.backgroundType || 'color') === 'color' ? 'selected' : '' %>><%= isEn ? 'Color' : '컬러' %></option>
-            <option value="image" <%= (nightThemeAssets.backgroundType || 'color') === 'image' ? 'selected' : '' %>><%= isEn ? 'Image' : '이미지' %></option>
-          </select>
-        </label>
-        <label><%= isEn ? 'Background Image Upload (Night)' : '배경 이미지 업로드 (나이트)' %>
-          <input type="file" name="nightBackgroundImage" accept="image/*" />
-          <% if (nightThemeAssets.backgroundImagePath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.backgroundImagePath %></code></small>
-          <% } %>
-        </label>
-        <label><%= isEn ? 'Header Symbol Upload (Night)' : '헤더 심볼 업로드 (나이트)' %>
-          <input type="file" name="nightHeaderSymbol" accept="image/*" />
-          <% if (nightThemeAssets.headerSymbolPath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.headerSymbolPath %></code></small>
-          <% } %>
-        </label>
-        <label><%= isEn ? 'Header Logo Upload (Night)' : '헤더 로고 업로드 (나이트)' %>
-          <input type="file" name="nightHeaderLogo" accept="image/*" />
-          <% if (nightThemeAssets.headerLogoPath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.headerLogoPath %></code></small>
-          <% } %>
-        </label>
-        <label><%= isEn ? 'Footer Logo Upload (Night)' : '푸터 로고 업로드 (나이트)' %>
-          <input type="file" name="nightFooterLogo" accept="image/*" />
-          <% if (nightThemeAssets.footerLogoPath) { %>
-            <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.footerLogoPath %></code></small>
-          <% } %>
-        </label>
-      </fieldset>
 
       <label><%= isEn ? 'Default Language' : '기본 언어' %>
         <select name="languageDefault">
@@ -1230,8 +1117,143 @@
         <textarea name="menusJson" rows="8"><%= settings.menusJson %></textarea>
       </label>
 
-      <button type="submit" class="cta-main"><%= isEn ? 'Save Site Settings' : '사이트 설정 저장' %></button>
+      <button type="submit" class="cta-main"><%= isEn ? 'Save Basic Settings' : '기본 설정 저장' %></button>
     </form>
+    <% } %>
+
+    <% if (siteTab === 'theme') { %>
+    <form method="post" action="/admin/settings" enctype="multipart/form-data" class="form-grid">
+      <input type="hidden" name="settingsSection" value="theme" />
+
+      <div class="theme-settings-grid-wrap">
+        <div class="theme-settings-grid">
+          <fieldset class="theme-color-fieldset">
+            <legend><%= isEn ? 'Day Mode' : '데이 모드' %></legend>
+            <label><%= isEn ? 'Header Color' : '헤더 컬러' %>
+              <input type="color" name="dayHeaderColor" value="<%= dayThemeColors.headerColor || '#0f172a' %>" />
+            </label>
+            <label><%= isEn ? 'Background Color' : '배경 컬러' %>
+              <input type="color" name="dayBackgroundColor" value="<%= dayThemeColors.backgroundColor || '#f3f4f6' %>" />
+            </label>
+            <label><%= isEn ? 'Text Color' : '본문 텍스트 컬러' %>
+              <input type="color" name="dayTextColor" value="<%= dayThemeColors.textColor || '#000000' %>" />
+            </label>
+            <label><%= isEn ? 'Muted Text Color' : '보조 텍스트 컬러' %>
+              <input type="color" name="dayMutedColor" value="<%= dayThemeColors.mutedColor || '#4b5563' %>" />
+            </label>
+            <label><%= isEn ? 'Border Line Color' : '라인/보더 컬러' %>
+              <input type="color" name="dayLineColor" value="<%= dayThemeColors.lineColor || '#f3f4f6' %>" />
+            </label>
+            <label><%= isEn ? 'Card Color' : '카드 배경 컬러' %>
+              <input type="color" name="dayCardColor" value="<%= dayThemeColors.cardColor || '#ffffff' %>" />
+            </label>
+            <label><%= isEn ? 'Dark Card Color' : '강조 카드 컬러' %>
+              <input type="color" name="dayCardDarkColor" value="<%= dayThemeColors.cardDarkColor || '#0f172a' %>" />
+            </label>
+            <label><%= isEn ? 'Dark Card Text Color' : '강조 카드 텍스트 컬러' %>
+              <input type="color" name="dayCardDarkTextColor" value="<%= dayThemeColors.cardDarkTextColor || '#f3f4f6' %>" />
+            </label>
+            <label><%= isEn ? 'Chip/Control Fill' : '칩/컨트롤 배경 컬러' %>
+              <input type="color" name="dayChipColor" value="<%= dayThemeColors.chipColor || '#f3f4f6' %>" />
+            </label>
+            <label><%= isEn ? 'Background Type' : '배경 타입' %>
+              <select name="dayBackgroundType">
+                <option value="color" <%= (dayThemeAssets.backgroundType || 'color') === 'color' ? 'selected' : '' %>><%= isEn ? 'Color' : '컬러' %></option>
+                <option value="image" <%= (dayThemeAssets.backgroundType || 'color') === 'image' ? 'selected' : '' %>><%= isEn ? 'Image' : '이미지' %></option>
+              </select>
+            </label>
+            <label><%= isEn ? 'Background Image Upload (Day)' : '배경 이미지 업로드 (데이)' %>
+              <input type="file" name="dayBackgroundImage" accept="image/*" />
+              <% if (dayThemeAssets.backgroundImagePath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.backgroundImagePath %></code></small>
+              <% } %>
+            </label>
+            <label><%= isEn ? 'Header Symbol Upload (Day)' : '헤더 심볼 업로드 (데이)' %>
+              <input type="file" name="dayHeaderSymbol" accept="image/*" />
+              <% if (dayThemeAssets.headerSymbolPath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.headerSymbolPath %></code></small>
+              <% } %>
+            </label>
+            <label><%= isEn ? 'Header Logo Upload (Day)' : '헤더 로고 업로드 (데이)' %>
+              <input type="file" name="dayHeaderLogo" accept="image/*" />
+              <% if (dayThemeAssets.headerLogoPath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.headerLogoPath %></code></small>
+              <% } %>
+            </label>
+            <label><%= isEn ? 'Footer Logo Upload (Day)' : '푸터 로고 업로드 (데이)' %>
+              <input type="file" name="dayFooterLogo" accept="image/*" />
+              <% if (dayThemeAssets.footerLogoPath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= dayThemeAssets.footerLogoPath %></code></small>
+              <% } %>
+            </label>
+          </fieldset>
+
+          <fieldset class="theme-color-fieldset">
+            <legend><%= isEn ? 'Night Mode' : '나이트 모드' %></legend>
+            <label><%= isEn ? 'Header Color' : '헤더 컬러' %>
+              <input type="color" name="nightHeaderColor" value="<%= nightThemeColors.headerColor || '#000000' %>" />
+            </label>
+            <label><%= isEn ? 'Background Color' : '배경 컬러' %>
+              <input type="color" name="nightBackgroundColor" value="<%= nightThemeColors.backgroundColor || '#000000' %>" />
+            </label>
+            <label><%= isEn ? 'Text Color' : '본문 텍스트 컬러' %>
+              <input type="color" name="nightTextColor" value="<%= nightThemeColors.textColor || '#ffffff' %>" />
+            </label>
+            <label><%= isEn ? 'Muted Text Color' : '보조 텍스트 컬러' %>
+              <input type="color" name="nightMutedColor" value="<%= nightThemeColors.mutedColor || '#f3f4f6' %>" />
+            </label>
+            <label><%= isEn ? 'Border Line Color' : '라인/보더 컬러' %>
+              <input type="color" name="nightLineColor" value="<%= nightThemeColors.lineColor || '#4b5563' %>" />
+            </label>
+            <label><%= isEn ? 'Card Color' : '카드 배경 컬러' %>
+              <input type="color" name="nightCardColor" value="<%= nightThemeColors.cardColor || '#4b5563' %>" />
+            </label>
+            <label><%= isEn ? 'Dark Card Color' : '강조 카드 컬러' %>
+              <input type="color" name="nightCardDarkColor" value="<%= nightThemeColors.cardDarkColor || '#ffffff' %>" />
+            </label>
+            <label><%= isEn ? 'Dark Card Text Color' : '강조 카드 텍스트 컬러' %>
+              <input type="color" name="nightCardDarkTextColor" value="<%= nightThemeColors.cardDarkTextColor || '#000000' %>" />
+            </label>
+            <label><%= isEn ? 'Chip/Control Fill' : '칩/컨트롤 배경 컬러' %>
+              <input type="color" name="nightChipColor" value="<%= nightThemeColors.chipColor || '#0f172a' %>" />
+            </label>
+            <label><%= isEn ? 'Background Type' : '배경 타입' %>
+              <select name="nightBackgroundType">
+                <option value="color" <%= (nightThemeAssets.backgroundType || 'color') === 'color' ? 'selected' : '' %>><%= isEn ? 'Color' : '컬러' %></option>
+                <option value="image" <%= (nightThemeAssets.backgroundType || 'color') === 'image' ? 'selected' : '' %>><%= isEn ? 'Image' : '이미지' %></option>
+              </select>
+            </label>
+            <label><%= isEn ? 'Background Image Upload (Night)' : '배경 이미지 업로드 (나이트)' %>
+              <input type="file" name="nightBackgroundImage" accept="image/*" />
+              <% if (nightThemeAssets.backgroundImagePath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.backgroundImagePath %></code></small>
+              <% } %>
+            </label>
+            <label><%= isEn ? 'Header Symbol Upload (Night)' : '헤더 심볼 업로드 (나이트)' %>
+              <input type="file" name="nightHeaderSymbol" accept="image/*" />
+              <% if (nightThemeAssets.headerSymbolPath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.headerSymbolPath %></code></small>
+              <% } %>
+            </label>
+            <label><%= isEn ? 'Header Logo Upload (Night)' : '헤더 로고 업로드 (나이트)' %>
+              <input type="file" name="nightHeaderLogo" accept="image/*" />
+              <% if (nightThemeAssets.headerLogoPath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.headerLogoPath %></code></small>
+              <% } %>
+            </label>
+            <label><%= isEn ? 'Footer Logo Upload (Night)' : '푸터 로고 업로드 (나이트)' %>
+              <input type="file" name="nightFooterLogo" accept="image/*" />
+              <% if (nightThemeAssets.footerLogoPath) { %>
+                <small class="muted-label"><%= isEn ? 'Current:' : '현재:' %> <code><%= nightThemeAssets.footerLogoPath %></code></small>
+              <% } %>
+            </label>
+          </fieldset>
+        </div>
+      </div>
+
+      <button type="submit" class="cta-main"><%= isEn ? 'Save Theme Settings' : '테마 설정 저장' %></button>
+    </form>
+    <% } %>
   </article>
   <% } %>
 
