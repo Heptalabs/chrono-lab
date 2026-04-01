@@ -125,13 +125,13 @@ const DEFAULT_THEME_COLORS = Object.freeze({
   night: Object.freeze({
     headerColor: '#0b1220',
     backgroundColor: '#070b14',
-    textColor: '#f4f7ff',
-    mutedColor: '#aeb9cf',
-    lineColor: '#2f3b52',
-    cardColor: '#111a2b',
-    cardDarkColor: '#e8eef9',
+    textColor: '#f5f8ff',
+    mutedColor: '#b7c3d9',
+    lineColor: '#435574',
+    cardColor: '#111b30',
+    cardDarkColor: '#edf3ff',
     cardDarkTextColor: '#0b1220',
-    chipColor: '#1a2438'
+    chipColor: '#1b2941'
   })
 });
 
