@@ -129,8 +129,8 @@ const DEFAULT_THEME_COLORS = Object.freeze({
     mutedColor: '#b7c3d9',
     lineColor: '#435574',
     cardColor: '#111b30',
-    cardDarkColor: '#edf3ff',
-    cardDarkTextColor: '#0b1220',
+    cardDarkColor: '#0c1424',
+    cardDarkTextColor: '#f5f8ff',
     chipColor: '#1b2941'
   })
 });

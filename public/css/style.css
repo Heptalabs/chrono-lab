@@ -86,8 +86,8 @@ body.theme-night {
   --muted: #b7c3d9;
   --line: #435574;
   --card: #111b30;
-  --card-dark: #edf3ff;
-  --card-dark-text: #0b1220;
+  --card-dark: #0c1424;
+  --card-dark-text: #f5f8ff;
   --chip: #1b2941;
   --header-fg: #f5f8ff;
   --header-ui-border: rgba(203, 213, 225, 0.42);
@@ -165,6 +165,111 @@ body.theme-night .menu-pill.active,
 body.theme-night .chip.dark,
 body.theme-night .cta-main {
   box-shadow: inset 0 0 0 1px rgba(11, 18, 32, 0.12), 0 8px 18px rgba(0, 0, 0, 0.24);
+}
+
+body.theme-night .site-header,
+body.theme-night .hero-wrap,
+body.theme-night .block-card,
+body.theme-night .shop-filter-card,
+body.theme-night .product-card,
+body.theme-night .news-card,
+body.theme-night .qc-card,
+body.theme-night .review-card,
+body.theme-night .auth-card,
+body.theme-night .footer-card,
+body.theme-night .kpi-card,
+body.theme-night .admin-list-item,
+body.theme-night .inquiry-admin-item,
+body.theme-night .menu-manage-form,
+body.theme-night .theme-color-fieldset,
+body.theme-night .security-denied-note,
+body.theme-night .product-simple-fields,
+body.theme-night .watermark-preview-item,
+body.theme-night .mypage-stat-card,
+body.theme-night .table-wrap,
+body.theme-night .popup-card,
+body.theme-night .cart-summary-card,
+body.theme-night .shop-split-card,
+body.theme-night .mypage-addressbook-item,
+body.theme-night .address-book-save-box {
+  border-color: #4b5f80;
+}
+
+body.theme-night .site-header {
+  box-shadow: 0 22px 44px rgba(0, 0, 0, 0.5);
+}
+
+body.theme-night .menu-scroller {
+  background: #101a2d;
+}
+
+body.theme-night .hero-dark-card,
+body.theme-night .detail-card-dark {
+  background: #0c1424;
+  color: #f5f8ff;
+  border-color: #4b5f80;
+}
+
+body.theme-night .hero-dark-card p,
+body.theme-night .detail-card-dark .muted-label,
+body.theme-night .detail-card-dark .spec-grid span,
+body.theme-night .detail-card-dark .feature-copy {
+  color: #d6e0f2;
+}
+
+body.theme-night .hero-badge {
+  background: #1b2941;
+  color: #f5f8ff;
+  border-color: #5d7398;
+}
+
+body.theme-night .detail-card-dark .cta-main {
+  background: #1a2941;
+  color: #f5f8ff;
+  border-color: #5d7398;
+}
+
+body.theme-night .detail-card-dark .cta-main:hover {
+  background: #223754;
+  color: #ffffff;
+  border-color: #6f87af;
+}
+
+body.theme-night .detail-action-row .detail-buy-btn {
+  background: #eef3ff;
+  border-color: #b6c6e4;
+  color: #0b1220;
+}
+
+body.theme-night .detail-action-row .detail-buy-btn:hover {
+  background: #ffffff;
+  border-color: #d2def2;
+  color: #0b1220;
+}
+
+body.theme-night .detail-action-row .detail-cart-btn {
+  border-color: #7d90b0;
+  color: #e5ecfb;
+}
+
+body.theme-night .detail-action-row .detail-cart-btn:hover {
+  background: #1b2941;
+  border-color: #8ca2c7;
+  color: #ffffff;
+}
+
+body.theme-night th {
+  background: #152238;
+  color: #e7effe;
+  border-bottom-color: #556b8f;
+}
+
+body.theme-night td {
+  border-bottom-color: #435574;
+}
+
+body.theme-night tr:hover td {
+  background: rgba(148, 163, 184, 0.08);
 }
 
 body.theme-night input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):focus,
