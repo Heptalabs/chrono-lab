@@ -80,14 +80,25 @@ const ADMIN_MENUS = Object.freeze([
 
 const SALES_SHEET_DEFAULT_URL =
   'https://docs.google.com/spreadsheets/d/1ZBZ1BvTNTEn809EllGK1W4y9pv-neHxczny5awBqKSA/edit';
-const SALES_SHEET_CACHE_TTL_MS = 1000 * 60 * 3;
-const SALES_SHEET_TABS = Object.freeze([
-  { key: 'price', gid: '1876177949', labelKo: '가격표', labelEn: 'Price Table' },
+const SALES_WORKBOOK_SETTING_KEY = 'salesWorkbookV1';
+const SALES_MAIN_TABS = Object.freeze([
+  { key: 'price', labelKo: '공장제 가격표', labelEn: 'Factory Price Table', scopeType: 'factory' },
+  { key: 'preorder', labelKo: '선주문 정산', labelEn: 'Pre-Order Settlement', scopeType: 'round' },
+  { key: 'factory', labelKo: '공장제 매출', labelEn: 'Factory Sales', scopeType: 'round' },
+  { key: 'genparts', labelKo: '젠파츠 매출', labelEn: 'Gen-Parts Sales', scopeType: 'round' },
+  { key: 'used', labelKo: '현지중고 매출', labelEn: 'Local Used Sales', scopeType: 'round' }
+]);
+const SALES_IMPORT_TABS = Object.freeze([
+  { key: 'price', gid: '1876177949', labelKo: '공장제 가격표', labelEn: 'Factory Price Table' },
   { key: 'preorder', gid: '0', labelKo: '선주문 정산', labelEn: 'Pre-Order Settlement' },
   { key: 'factory', gid: '1114704757', labelKo: '공장제 매출', labelEn: 'Factory Sales' },
   { key: 'genparts', gid: '229912417', labelKo: '젠파츠 매출', labelEn: 'Gen-Parts Sales' },
-  { key: 'used', gid: '17869917', labelKo: '현지 중고 매출', labelEn: 'Local Used Sales' }
+  { key: 'used', gid: '17869917', labelKo: '현지중고 매출', labelEn: 'Local Used Sales' }
 ]);
+const SALES_DEFAULT_EXCHANGE_RATE = 229;
+const SALES_DEFAULT_SHIPPING_FEE_KRW = 23000;
+const SALES_CNY_NAVER_SEARCH_URL =
+  'https://search.naver.com/search.naver?where=nexearch&query=%EC%9C%84%EC%95%88%ED%99%94+%ED%99%98%EC%9C%A8';
 
 const SECURITY_SECTIONS = Object.freeze(['profile', 'admins', 'logs', 'alerts']);
 const SECURITY_PAGE_SIZE = 20;
@@ -258,6 +269,7 @@ app.disable('x-powered-by');
 app.use('/assets', express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use(
   session({
@@ -2048,11 +2060,45 @@ let dashboardStatsCache = {
   expiresAt: 0,
   value: null
 };
-let salesSheetCache = {
-  expiresAt: 0,
-  value: null,
-  inFlight: null
-};
+
+function createSalesId(prefix = 'sales') {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function parseNumericValue(value = '') {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return NaN;
+  }
+
+  const normalized = raw
+    .replace(/,/g, '')
+    .replace(/₩/g, '')
+    .replace(/원/g, '')
+    .replace(/krw/gi, '')
+    .replace(/rmb/gi, '')
+    .replace(/\s+/g, '');
+
+  if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
+    return NaN;
+  }
+  return Number(normalized);
+}
+
+function parseNonNegativeNumber(value, fallback = 0) {
+  const numeric = parseNumericValue(value);
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return fallback;
+  }
+  return numeric;
+}
+
+function normalizeSalesText(value, maxLength = 120) {
+  return String(value || '').trim().slice(0, maxLength);
+}
 
 function extractGoogleSheetId(sourceUrl = '') {
   const value = String(sourceUrl || '').trim();
@@ -2088,29 +2134,6 @@ function parseGoogleVizResponseJson(rawText = '') {
   }
 }
 
-function parseNumericValue(value = '') {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  const raw = String(value ?? '').trim();
-  if (!raw) {
-    return NaN;
-  }
-
-  const normalized = raw
-    .replace(/,/g, '')
-    .replace(/₩/g, '')
-    .replace(/원/g, '')
-    .replace(/krw/gi, '')
-    .replace(/rmb/gi, '')
-    .replace(/\s+/g, '');
-
-  if (!/^-?\d+(\.\d+)?$/.test(normalized)) {
-    return NaN;
-  }
-  return Number(normalized);
-}
-
 function normalizeGoogleSheetTable(rawTable = {}) {
   const cols = Array.isArray(rawTable?.cols) ? rawTable.cols : [];
   const rows = Array.isArray(rawTable?.rows) ? rawTable.rows : [];
@@ -2123,50 +2146,534 @@ function normalizeGoogleSheetTable(rawTable = {}) {
         const cell = rowCells[idx] || null;
         const raw = cell && Object.prototype.hasOwnProperty.call(cell, 'v') ? cell.v : '';
         const display = cell && Object.prototype.hasOwnProperty.call(cell, 'f') ? String(cell.f || '') : String(raw ?? '');
-        const numeric = parseNumericValue(cell && Object.prototype.hasOwnProperty.call(cell, 'f') ? cell.f : raw);
-        return {
-          raw: raw ?? '',
-          display: display.trim(),
-          numeric: Number.isFinite(numeric) ? numeric : null
-        };
+        return display.trim();
       });
     })
-    .filter((row) => row.some((cell) => String(cell.display || '').trim() !== ''));
-
-  const detectCol = (keywords = []) =>
-    headers.findIndex((header) =>
-      keywords.some((keyword) => String(header || '').toLowerCase().includes(String(keyword || '').toLowerCase()))
-    );
-  const sumColumn = (colIdx) => {
-    if (colIdx < 0) return null;
-    const total = normalizedRows.reduce((sum, row) => {
-      const value = row[colIdx]?.numeric;
-      return Number.isFinite(value) ? sum + value : sum;
-    }, 0);
-    return Number.isFinite(total) && total !== 0 ? total : 0;
-  };
-
-  const costCol = detectCol(['최종 원가', '시계 원가', '파츠 원가', '원가']);
-  const saleCol = detectCol(['판매 가격', '판매가']);
-  const marginCol = detectCol(['판매 마진', '마진']);
-  const qtyCol = detectCol(['주문량', '수량', '수주']);
-
-  const summary = {
-    rowCount: normalizedRows.length,
-    totalCost: sumColumn(costCol),
-    totalSales: sumColumn(saleCol),
-    totalMargin: sumColumn(marginCol),
-    totalQty: sumColumn(qtyCol)
-  };
+    .filter((row) => row.some((cell) => String(cell || '').trim() !== ''));
 
   return {
     headers,
-    rows: normalizedRows.map((row) => row.map((cell) => cell.display)),
-    summary
+    rows: normalizedRows
   };
 }
 
-async function fetchSalesSheetTab(sheetId, tabConfig) {
+function normalizeSalesHeaderLabel(value = '') {
+  return String(value || '').toLowerCase().replace(/\s+/g, '').replace(/\n/g, '');
+}
+
+function detectSalesColumnIndexes(headers = []) {
+  const normalized = headers.map((header) => normalizeSalesHeaderLabel(header));
+  const findBy = (keywords = []) =>
+    normalized.findIndex((label) => keywords.some((keyword) => label.includes(normalizeSalesHeaderLabel(keyword))));
+
+  return {
+    no: findBy(['no']),
+    factory: findBy(['공장']),
+    brand: findBy(['브랜드']),
+    model: findBy(['모델']),
+    reference: findBy(['레퍼런스']),
+    spec: findBy(['종류', '사이즈']),
+    costRmb: findBy(['원가(rmb)', '원가rmb', '시계원가(rmb)', '파츠원가(rmb)']),
+    saleKrw: findBy(['판매가격(krw)', '판매가격', '판매가']),
+    qty: findBy(['주문량', '수량', '수주']),
+    rate: findBy(['적용환율', '환율krw', '적용환율krw']),
+    shippingKrw: findBy(['배송비krw', '배송비'])
+  };
+}
+
+function createDefaultSalesRow(partial = {}) {
+  return {
+    id: normalizeSalesText(partial.id, 80) || createSalesId('row'),
+    factory: normalizeSalesText(partial.factory, 60),
+    brand: normalizeSalesText(partial.brand, 80),
+    model: normalizeSalesText(partial.model, 120),
+    reference: normalizeSalesText(partial.reference, 120),
+    spec: normalizeSalesText(partial.spec, 160),
+    costRmb: parseNonNegativeNumber(partial.costRmb, 0),
+    saleKrw: parseNonNegativeNumber(partial.saleKrw, 0),
+    quantity: Math.max(1, Math.floor(parseNonNegativeNumber(partial.quantity, 1) || 1)),
+    memo: normalizeSalesText(partial.memo, 500)
+  };
+}
+
+function buildDefaultPriceScopes() {
+  const groupConfigs = getProductGroupConfigs();
+  const factoryLikeGroup =
+    groupConfigs.find((group) => String(group.key || '') === '공장제') ||
+    groupConfigs.find((group) => String(group.mode || '') === PRODUCT_GROUP_MODE.FACTORY) ||
+    null;
+
+  const factoryNames = normalizeProductFilterOptionList(factoryLikeGroup?.factoryOptions || []);
+  const scopeNames = factoryNames.length > 0 ? factoryNames : ['기본'];
+  return scopeNames.map((name, idx) => ({
+    id: createSalesId(`scope-p-${idx + 1}`),
+    name: normalizeSalesText(name, 80) || `Factory ${idx + 1}`,
+    rows: []
+  }));
+}
+
+function createDefaultRoundName(tabKey = '', index = 1) {
+  if (tabKey === 'preorder') {
+    return `${index}차`;
+  }
+  return index === 1 ? '기본' : `회차 ${index}`;
+}
+
+function buildDefaultSalesWorkbook() {
+  const now = new Date().toISOString();
+  const tabs = {};
+  for (const tab of SALES_MAIN_TABS) {
+    if (tab.scopeType === 'factory') {
+      tabs[tab.key] = {
+        key: tab.key,
+        labelKo: tab.labelKo,
+        labelEn: tab.labelEn,
+        scopeType: tab.scopeType,
+        groups: buildDefaultPriceScopes()
+      };
+      continue;
+    }
+
+    tabs[tab.key] = {
+      key: tab.key,
+      labelKo: tab.labelKo,
+      labelEn: tab.labelEn,
+      scopeType: tab.scopeType,
+      rounds: [
+        {
+          id: createSalesId(`round-${tab.key}`),
+          name: createDefaultRoundName(tab.key, 1),
+          rows: []
+        }
+      ]
+    };
+  }
+
+  return {
+    version: 1,
+    globals: {
+      exchangeRate: SALES_DEFAULT_EXCHANGE_RATE,
+      shippingFeeKrw: SALES_DEFAULT_SHIPPING_FEE_KRW,
+      fxSource: 'manual',
+      fxUpdatedAt: '',
+      updatedAt: now
+    },
+    tabs,
+    meta: {
+      importedFrom: getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL),
+      importedAt: '',
+      updatedAt: now
+    }
+  };
+}
+
+function normalizeSalesScope(rawScope = {}, index = 0, tabKey = '', scopeType = 'round') {
+  const fallbackPrefix = scopeType === 'factory' ? 'scope' : 'round';
+  const fallbackName = scopeType === 'factory' ? `Factory ${index + 1}` : createDefaultRoundName(tabKey, index + 1);
+  const rows = Array.isArray(rawScope?.rows) ? rawScope.rows : [];
+
+  const normalizedRows = rows
+    .map((row) => createDefaultSalesRow(row))
+    .filter((row) => {
+      const hasText = [row.factory, row.brand, row.model, row.reference, row.spec, row.memo].some((value) => value);
+      const hasNumeric = row.costRmb > 0 || row.saleKrw > 0 || row.quantity > 1;
+      return hasText || hasNumeric;
+    });
+
+  return {
+    id: normalizeSalesText(rawScope?.id, 80) || createSalesId(`${fallbackPrefix}-${index + 1}`),
+    name: normalizeSalesText(rawScope?.name, 80) || fallbackName,
+    rows: normalizedRows
+  };
+}
+
+function normalizeSalesWorkbook(rawWorkbook = null) {
+  const fallback = buildDefaultSalesWorkbook();
+  const source = rawWorkbook && typeof rawWorkbook === 'object' ? rawWorkbook : {};
+  const sourceTabs = source.tabs && typeof source.tabs === 'object' ? source.tabs : {};
+  const sourceGlobals = source.globals && typeof source.globals === 'object' ? source.globals : {};
+  const sourceMeta = source.meta && typeof source.meta === 'object' ? source.meta : {};
+  const now = new Date().toISOString();
+
+  const globals = {
+    exchangeRate: Number(parseNonNegativeNumber(sourceGlobals.exchangeRate, SALES_DEFAULT_EXCHANGE_RATE).toFixed(4)),
+    shippingFeeKrw: Math.round(parseNonNegativeNumber(sourceGlobals.shippingFeeKrw, SALES_DEFAULT_SHIPPING_FEE_KRW)),
+    fxSource: normalizeSalesText(sourceGlobals.fxSource, 40) || 'manual',
+    fxUpdatedAt: normalizeSalesText(sourceGlobals.fxUpdatedAt, 40),
+    updatedAt: normalizeSalesText(sourceGlobals.updatedAt, 40) || now
+  };
+
+  const tabs = {};
+  for (const tab of SALES_MAIN_TABS) {
+    const rawTab = sourceTabs[tab.key] && typeof sourceTabs[tab.key] === 'object' ? sourceTabs[tab.key] : {};
+    if (tab.scopeType === 'factory') {
+      const rawGroups = Array.isArray(rawTab.groups)
+        ? rawTab.groups
+        : Array.isArray(rawTab.scopes)
+          ? rawTab.scopes
+          : [];
+      let groups = rawGroups.map((group, index) => normalizeSalesScope(group, index, tab.key, 'factory'));
+      if (groups.length === 0) {
+        groups = fallback.tabs[tab.key].groups.map((group, index) => normalizeSalesScope(group, index, tab.key, 'factory'));
+      }
+      tabs[tab.key] = {
+        key: tab.key,
+        labelKo: tab.labelKo,
+        labelEn: tab.labelEn,
+        scopeType: tab.scopeType,
+        groups
+      };
+      continue;
+    }
+
+    const rawRounds = Array.isArray(rawTab.rounds)
+      ? rawTab.rounds
+      : Array.isArray(rawTab.scopes)
+        ? rawTab.scopes
+        : [];
+    let rounds = rawRounds.map((round, index) => normalizeSalesScope(round, index, tab.key, 'round'));
+    if (rounds.length === 0) {
+      rounds = fallback.tabs[tab.key].rounds.map((round, index) => normalizeSalesScope(round, index, tab.key, 'round'));
+    }
+
+    tabs[tab.key] = {
+      key: tab.key,
+      labelKo: tab.labelKo,
+      labelEn: tab.labelEn,
+      scopeType: tab.scopeType,
+      rounds
+    };
+  }
+
+  return {
+    version: 1,
+    globals,
+    tabs,
+    meta: {
+      importedFrom:
+        normalizeSalesText(sourceMeta.importedFrom, 400) ||
+        normalizeSalesText(getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL), 400),
+      importedAt: normalizeSalesText(sourceMeta.importedAt, 40),
+      updatedAt: now
+    }
+  };
+}
+
+function getSalesWorkbook() {
+  const rawSetting = String(getSetting(SALES_WORKBOOK_SETTING_KEY, '') || '').trim();
+  let parsed = null;
+  if (rawSetting) {
+    try {
+      parsed = JSON.parse(rawSetting);
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const normalized = normalizeSalesWorkbook(parsed);
+  const normalizedJson = JSON.stringify(normalized);
+  if (!rawSetting || rawSetting !== normalizedJson) {
+    setSetting(SALES_WORKBOOK_SETTING_KEY, normalizedJson);
+  }
+  return normalized;
+}
+
+function saveSalesWorkbook(inputWorkbook = null, options = {}) {
+  const normalized = normalizeSalesWorkbook(inputWorkbook);
+  const importedFrom = normalizeSalesText(options.importedFrom || normalized.meta?.importedFrom || '', 400);
+  const importedAt = normalizeSalesText(options.importedAt || normalized.meta?.importedAt || '', 40);
+  const now = new Date().toISOString();
+
+  const next = {
+    ...normalized,
+    globals: {
+      ...normalized.globals,
+      updatedAt: now
+    },
+    meta: {
+      importedFrom: importedFrom || normalizeSalesText(getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL), 400),
+      importedAt,
+      updatedAt: now
+    }
+  };
+
+  setSetting(SALES_WORKBOOK_SETTING_KEY, JSON.stringify(next));
+  return next;
+}
+
+function getSalesScopeList(tab = null) {
+  if (!tab || typeof tab !== 'object') {
+    return [];
+  }
+  if (tab.scopeType === 'factory') {
+    return Array.isArray(tab.groups) ? tab.groups : [];
+  }
+  return Array.isArray(tab.rounds) ? tab.rounds : [];
+}
+
+function buildSalesRowComputed(row = {}, globals = {}) {
+  const exchangeRate = parseNonNegativeNumber(globals.exchangeRate, SALES_DEFAULT_EXCHANGE_RATE);
+  const shippingFeeKrw = parseNonNegativeNumber(globals.shippingFeeKrw, SALES_DEFAULT_SHIPPING_FEE_KRW);
+  const costRmb = parseNonNegativeNumber(row.costRmb, 0);
+  const saleKrw = parseNonNegativeNumber(row.saleKrw, 0);
+  const quantity = Math.max(1, Math.floor(parseNonNegativeNumber(row.quantity, 1) || 1));
+
+  const costKrw = Math.round(costRmb * exchangeRate);
+  const finalCostKrw = costKrw + Math.round(shippingFeeKrw);
+  const marginKrw = saleKrw - finalCostKrw;
+
+  return {
+    costKrw,
+    finalCostKrw,
+    marginKrw,
+    totalCostKrw: finalCostKrw * quantity,
+    totalSalesKrw: saleKrw * quantity,
+    totalMarginKrw: marginKrw * quantity
+  };
+}
+
+function buildSalesScopeSummary(scope = {}, globals = {}) {
+  const rows = Array.isArray(scope.rows) ? scope.rows : [];
+  let totalQty = 0;
+  let totalCostKrw = 0;
+  let totalSalesKrw = 0;
+  let totalMarginKrw = 0;
+
+  for (const row of rows) {
+    const quantity = Math.max(1, Math.floor(parseNonNegativeNumber(row.quantity, 1) || 1));
+    const computed = buildSalesRowComputed(row, globals);
+    totalQty += quantity;
+    totalCostKrw += computed.totalCostKrw;
+    totalSalesKrw += computed.totalSalesKrw;
+    totalMarginKrw += computed.totalMarginKrw;
+  }
+
+  return {
+    rowCount: rows.length,
+    totalQty,
+    totalCostKrw,
+    totalSalesKrw,
+    totalMarginKrw
+  };
+}
+
+function buildSalesWorkbookPayload(workbook) {
+  const normalized = normalizeSalesWorkbook(workbook);
+  const shippingFeeRmb =
+    normalized.globals.exchangeRate > 0
+      ? Number((normalized.globals.shippingFeeKrw / normalized.globals.exchangeRate).toFixed(2))
+      : 0;
+
+  const tabs = SALES_MAIN_TABS.map((tabInfo) => {
+    const tab = normalized.tabs[tabInfo.key];
+    const scopes = getSalesScopeList(tab).map((scope) => ({
+      id: scope.id,
+      name: scope.name,
+      summary: buildSalesScopeSummary(scope, normalized.globals),
+      rows: scope.rows.map((row) => ({
+        ...row,
+        computed: buildSalesRowComputed(row, normalized.globals)
+      }))
+    }));
+    return {
+      key: tabInfo.key,
+      labelKo: tabInfo.labelKo,
+      labelEn: tabInfo.labelEn,
+      scopeType: tabInfo.scopeType,
+      scopes
+    };
+  });
+
+  return {
+    workbook: normalized,
+    globals: {
+      ...normalized.globals,
+      shippingFeeRmb
+    },
+    tabs
+  };
+}
+
+function buildSalesRowFromSheetRow(row = [], indexes = {}, fallbackFactory = '') {
+  const valueAt = (idx) => (idx >= 0 ? String(row[idx] || '').trim() : '');
+  const quantityRaw = valueAt(indexes.qty);
+  const quantity = Math.max(1, Math.floor(parseNonNegativeNumber(quantityRaw, 1) || 1));
+
+  return createDefaultSalesRow({
+    factory: valueAt(indexes.factory) || fallbackFactory,
+    brand: valueAt(indexes.brand),
+    model: valueAt(indexes.model),
+    reference: valueAt(indexes.reference),
+    spec: valueAt(indexes.spec),
+    costRmb: parseNonNegativeNumber(valueAt(indexes.costRmb), 0),
+    saleKrw: parseNonNegativeNumber(valueAt(indexes.saleKrw), 0),
+    quantity
+  });
+}
+
+function extractRoundNameFromTitle(title = '', tabKey = '') {
+  const value = String(title || '').trim();
+  const roundMatch = value.match(/(\d+\s*차)/);
+  if (roundMatch?.[1]) {
+    return roundMatch[1].replace(/\s+/g, '');
+  }
+  if (tabKey === 'preorder') {
+    return '1차';
+  }
+  return '기본';
+}
+
+function buildSalesWorkbookFromSheetSnapshot(snapshot = {}) {
+  const base = buildDefaultSalesWorkbook();
+  const tabs = Array.isArray(snapshot.tabs) ? snapshot.tabs : [];
+  let detectedExchangeRate = null;
+  let detectedShippingFeeKrw = null;
+
+  const nextTabs = { ...base.tabs };
+
+  for (const importedTab of tabs) {
+    if (!importedTab || importedTab.status !== 'ok') continue;
+    const tabInfo = SALES_MAIN_TABS.find((item) => item.key === importedTab.key);
+    if (!tabInfo) continue;
+
+    const headers = Array.isArray(importedTab.headers) ? importedTab.headers : [];
+    const rows = Array.isArray(importedTab.rows) ? importedTab.rows : [];
+    const indexes = detectSalesColumnIndexes(headers);
+
+    for (const row of rows) {
+      if (!Array.isArray(row)) continue;
+      if (detectedExchangeRate === null && indexes.rate >= 0) {
+        const value = parseNonNegativeNumber(String(row[indexes.rate] || '').trim(), NaN);
+        if (Number.isFinite(value) && value > 0) {
+          detectedExchangeRate = value;
+        }
+      }
+      if (detectedShippingFeeKrw === null && indexes.shippingKrw >= 0) {
+        const value = parseNonNegativeNumber(String(row[indexes.shippingKrw] || '').trim(), NaN);
+        if (Number.isFinite(value) && value > 0) {
+          detectedShippingFeeKrw = value;
+        }
+      }
+    }
+
+    if (tabInfo.scopeType === 'factory') {
+      const groupMap = new Map();
+      rows.forEach((row) => {
+        if (!Array.isArray(row)) return;
+        const noValue = indexes.no >= 0 ? String(row[indexes.no] || '').trim() : '';
+        const brand = indexes.brand >= 0 ? String(row[indexes.brand] || '').trim() : '';
+        const model = indexes.model >= 0 ? String(row[indexes.model] || '').trim() : '';
+        const cost = indexes.costRmb >= 0 ? parseNonNegativeNumber(String(row[indexes.costRmb] || '').trim(), NaN) : NaN;
+        const sale = indexes.saleKrw >= 0 ? parseNonNegativeNumber(String(row[indexes.saleKrw] || '').trim(), NaN) : NaN;
+        const isLikelyHeader = [brand, model].some((cell) => normalizeSalesHeaderLabel(cell).includes('브랜드'));
+        const hasData = !!brand || !!model || Number.isFinite(cost) || Number.isFinite(sale);
+        if (!hasData || isLikelyHeader || /^no\.?$/i.test(noValue)) {
+          return;
+        }
+
+        const factoryName =
+          (indexes.factory >= 0 ? String(row[indexes.factory] || '').trim() : '') ||
+          '기본';
+        if (!groupMap.has(factoryName)) {
+          groupMap.set(factoryName, {
+            id: createSalesId('scope-price'),
+            name: normalizeSalesText(factoryName, 80) || '기본',
+            rows: []
+          });
+        }
+
+        const mappedRow = buildSalesRowFromSheetRow(row, indexes, factoryName);
+        mappedRow.factory = mappedRow.factory || factoryName;
+        groupMap.get(factoryName).rows.push(mappedRow);
+      });
+
+      const groups = [...groupMap.values()];
+      nextTabs[tabInfo.key] = {
+        key: tabInfo.key,
+        labelKo: tabInfo.labelKo,
+        labelEn: tabInfo.labelEn,
+        scopeType: tabInfo.scopeType,
+        groups: groups.length > 0 ? groups : base.tabs[tabInfo.key].groups
+      };
+      continue;
+    }
+
+    const rounds = [];
+    let currentRound = {
+      id: createSalesId(`round-${tabInfo.key}`),
+      name: extractRoundNameFromTitle(headers[1] || headers[0] || '', tabInfo.key),
+      rows: []
+    };
+
+    rows.forEach((row) => {
+      if (!Array.isArray(row)) return;
+      const noValue = indexes.no >= 0 ? String(row[indexes.no] || '').trim() : '';
+      const factory = indexes.factory >= 0 ? String(row[indexes.factory] || '').trim() : '';
+      const brand = indexes.brand >= 0 ? String(row[indexes.brand] || '').trim() : '';
+      const model = indexes.model >= 0 ? String(row[indexes.model] || '').trim() : '';
+      const cost = indexes.costRmb >= 0 ? parseNonNegativeNumber(String(row[indexes.costRmb] || '').trim(), NaN) : NaN;
+      const sale = indexes.saleKrw >= 0 ? parseNonNegativeNumber(String(row[indexes.saleKrw] || '').trim(), NaN) : NaN;
+      const hasData = !!factory || !!brand || !!model || Number.isFinite(cost) || Number.isFinite(sale);
+      const noDateLike = /^\d{4}[-./]\d{1,2}[-./]\d{1,2}$/.test(noValue);
+
+      if (noDateLike && !hasData) {
+        if (currentRound.rows.length > 0) {
+          rounds.push(currentRound);
+        }
+        currentRound = {
+          id: createSalesId(`round-${tabInfo.key}`),
+          name: noValue.replace(/[./]/g, '-'),
+          rows: []
+        };
+        return;
+      }
+
+      if (!hasData || /^no\.?$/i.test(noValue) || normalizeSalesHeaderLabel(brand).includes('브랜드')) {
+        return;
+      }
+      currentRound.rows.push(buildSalesRowFromSheetRow(row, indexes));
+    });
+
+    if (currentRound.rows.length > 0 || rounds.length === 0) {
+      rounds.push(currentRound);
+    }
+
+    nextTabs[tabInfo.key] = {
+      key: tabInfo.key,
+      labelKo: tabInfo.labelKo,
+      labelEn: tabInfo.labelEn,
+      scopeType: tabInfo.scopeType,
+      rounds
+    };
+  }
+
+  const importedWorkbook = {
+    version: 1,
+    globals: {
+      exchangeRate:
+        Number.isFinite(detectedExchangeRate) && detectedExchangeRate > 0
+          ? Number(detectedExchangeRate.toFixed(4))
+          : SALES_DEFAULT_EXCHANGE_RATE,
+      shippingFeeKrw:
+        Number.isFinite(detectedShippingFeeKrw) && detectedShippingFeeKrw > 0
+          ? Math.round(detectedShippingFeeKrw)
+          : SALES_DEFAULT_SHIPPING_FEE_KRW,
+      fxSource: 'sheet',
+      fxUpdatedAt: '',
+      updatedAt: new Date().toISOString()
+    },
+    tabs: nextTabs,
+    meta: {
+      importedFrom: normalizeSalesText(snapshot.sourceUrl || SALES_SHEET_DEFAULT_URL, 400),
+      importedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  };
+
+  return normalizeSalesWorkbook(importedWorkbook);
+}
+
+async function fetchSalesImportTab(sheetId, tabConfig) {
   const url = new URL(`https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq`);
   url.searchParams.set('tqx', 'out:json');
   url.searchParams.set('gid', String(tabConfig.gid));
@@ -2196,66 +2703,88 @@ async function fetchSalesSheetTab(sheetId, tabConfig) {
     labelEn: tabConfig.labelEn,
     headers: table.headers,
     rows: table.rows,
-    summary: table.summary,
     status: 'ok'
   };
 }
 
-async function getSalesSheetSnapshot(forceRefresh = false) {
-  const now = Date.now();
-  if (!forceRefresh && salesSheetCache.value && salesSheetCache.expiresAt > now) {
-    return salesSheetCache.value;
-  }
-  if (salesSheetCache.inFlight) {
-    return salesSheetCache.inFlight;
+async function importSalesWorkbookFromGoogleSheet() {
+  const sourceUrl = getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL);
+  const sheetId = extractGoogleSheetId(sourceUrl) || extractGoogleSheetId(SALES_SHEET_DEFAULT_URL);
+  if (!sheetId) {
+    throw new Error('invalid sales sheet id');
   }
 
-  salesSheetCache.inFlight = (async () => {
-    const sourceUrl = getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL);
-    const sheetId = extractGoogleSheetId(sourceUrl) || extractGoogleSheetId(SALES_SHEET_DEFAULT_URL);
-    if (!sheetId) {
-      throw new Error('invalid sales sheet id');
+  const tabs = await Promise.all(
+    SALES_IMPORT_TABS.map(async (tab) => {
+      try {
+        return await fetchSalesImportTab(sheetId, tab);
+      } catch (error) {
+        return {
+          key: tab.key,
+          gid: tab.gid,
+          labelKo: tab.labelKo,
+          labelEn: tab.labelEn,
+          headers: [],
+          rows: [],
+          status: 'error',
+          errorMessage: error instanceof Error ? error.message : 'failed to import'
+        };
+      }
+    })
+  );
+
+  const workbook = buildSalesWorkbookFromSheetSnapshot({
+    sourceUrl,
+    sheetId,
+    tabs
+  });
+  return saveSalesWorkbook(workbook, {
+    importedFrom: sourceUrl,
+    importedAt: new Date().toISOString()
+  });
+}
+
+async function fetchCnyKrwExchangeRate() {
+  if (typeof fetch !== 'function') {
+    throw new Error('fetch unavailable');
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(SALES_CNY_NAVER_SEARCH_URL, {
+      method: 'GET',
+      headers: {
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'user-agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+      },
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      throw new Error(`naver fx fetch failed(${response.status})`);
     }
 
-    const tabs = await Promise.all(
-      SALES_SHEET_TABS.map(async (tab) => {
-        try {
-          return await fetchSalesSheetTab(sheetId, tab);
-        } catch (error) {
-          return {
-            key: tab.key,
-            gid: tab.gid,
-            labelKo: tab.labelKo,
-            labelEn: tab.labelEn,
-            headers: [],
-            rows: [],
-            summary: { rowCount: 0, totalCost: 0, totalSales: 0, totalMargin: 0, totalQty: 0 },
-            status: 'error',
-            errorMessage: error instanceof Error ? error.message : 'failed to fetch'
-          };
-        }
-      })
-    );
+    const html = await response.text();
+    const cashBuyMatch =
+      html.match(
+        /<strong class="item_title">시세정보<\/strong>[\s\S]*?현찰\s*살때<\/dt>\s*<dd>\s*<span class="text">([^<]+)<\/span>/i
+      ) ||
+      html.match(/현찰\s*살때<\/dt>\s*<dd>\s*<span class="text">([^<]+)<\/span>/i);
+    const krwRate = parseNonNegativeNumber(cashBuyMatch?.[1] || '', NaN);
+    if (!Number.isFinite(krwRate) || krwRate <= 0) {
+      throw new Error('invalid naver hana cash-buy rate');
+    }
 
-    const snapshot = {
-      sourceUrl,
-      sheetId,
-      fetchedAt: new Date().toISOString(),
-      tabs
+    const updatedAt = new Date().toISOString();
+
+    return {
+      exchangeRate: Number(krwRate.toFixed(4)),
+      updatedAt,
+      provider: 'naver-hanabank-cash-buy'
     };
-
-    salesSheetCache = {
-      expiresAt: Date.now() + SALES_SHEET_CACHE_TTL_MS,
-      value: snapshot,
-      inFlight: null
-    };
-    return snapshot;
-  })();
-
-  try {
-    return await salesSheetCache.inFlight;
   } finally {
-    salesSheetCache.inFlight = null;
+    clearTimeout(timeout);
   }
 }
 
@@ -6547,7 +7076,7 @@ function buildAdminDashboardViewData(lang = 'ko', options = {}) {
     productGroups: productGroupConfigs.map((group) => group.key),
     productGroupConfigs,
     groupLabelMap,
-    salesSheetTabs: SALES_SHEET_TABS,
+    salesMainTabs: SALES_MAIN_TABS,
     salesSheetDefaultUrl: SALES_SHEET_DEFAULT_URL
   };
 }
@@ -7247,18 +7776,84 @@ app.get(
   '/admin/sales/data',
   requireAdmin,
   asyncRoute(async (req, res) => {
-    const forceRefresh = req.query.refresh === '1';
-    const snapshot = await getSalesSheetSnapshot(forceRefresh);
-    const activeTabKey = String(req.query.tab || '').trim();
-    const tabs = Array.isArray(snapshot.tabs) ? snapshot.tabs : [];
-    const filteredTabs = activeTabKey ? tabs.filter((tab) => tab.key === activeTabKey) : tabs;
+    const shouldImportFromSheet = req.query.importFromSheet === '1';
+    let workbook = null;
+    const rawStoredWorkbook = String(getSetting(SALES_WORKBOOK_SETTING_KEY, '') || '').trim();
+
+    if (shouldImportFromSheet) {
+      workbook = await importSalesWorkbookFromGoogleSheet();
+      logAdminActivity(req, 'SALES_IMPORT', 'sales workbook imported from google sheet');
+    } else if (!rawStoredWorkbook) {
+      try {
+        workbook = await importSalesWorkbookFromGoogleSheet();
+      } catch {
+        workbook = getSalesWorkbook();
+      }
+    } else {
+      workbook = getSalesWorkbook();
+    }
+
+    const payload = buildSalesWorkbookPayload(workbook);
+    return res.json({
+      ok: true,
+      sourceUrl: getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL),
+      mainTabs: SALES_MAIN_TABS,
+      ...payload
+    });
+  })
+);
+
+app.post(
+  '/admin/sales/workbook',
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const incomingWorkbook = req.body?.workbook && typeof req.body.workbook === 'object'
+      ? req.body.workbook
+      : req.body;
+    const savedWorkbook = saveSalesWorkbook(incomingWorkbook);
+    logAdminActivity(req, 'SALES_SAVE', 'sales workbook saved');
 
     return res.json({
       ok: true,
-      sourceUrl: snapshot.sourceUrl,
-      sheetId: snapshot.sheetId,
-      fetchedAt: snapshot.fetchedAt,
-      tabs: filteredTabs
+      sourceUrl: getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL),
+      mainTabs: SALES_MAIN_TABS,
+      ...buildSalesWorkbookPayload(savedWorkbook)
+    });
+  })
+);
+
+app.post(
+  '/admin/sales/fx-sync',
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const fx = await fetchCnyKrwExchangeRate();
+    const workbook = getSalesWorkbook();
+    workbook.globals.exchangeRate = fx.exchangeRate;
+    workbook.globals.fxSource = fx.provider;
+    workbook.globals.fxUpdatedAt = fx.updatedAt;
+    const savedWorkbook = saveSalesWorkbook(workbook);
+
+    logAdminActivity(req, 'SALES_FX_SYNC', `CNY/KRW=${fx.exchangeRate}`);
+    return res.json({
+      ok: true,
+      sourceUrl: getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL),
+      mainTabs: SALES_MAIN_TABS,
+      ...buildSalesWorkbookPayload(savedWorkbook)
+    });
+  })
+);
+
+app.post(
+  '/admin/sales/import-sheet',
+  requireAdmin,
+  asyncRoute(async (req, res) => {
+    const workbook = await importSalesWorkbookFromGoogleSheet();
+    logAdminActivity(req, 'SALES_IMPORT', 'sales workbook imported from google sheet');
+    return res.json({
+      ok: true,
+      sourceUrl: getSetting('salesSheetUrl', SALES_SHEET_DEFAULT_URL),
+      mainTabs: SALES_MAIN_TABS,
+      ...buildSalesWorkbookPayload(workbook)
     });
   })
 );
