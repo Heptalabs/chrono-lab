@@ -1058,10 +1058,10 @@
                 <th><%= isEn ? 'Joined Date' : '가입일자' %></th>
                 <th>ID</th>
                 <th><%= isEn ? 'Nickname' : '닉네임' %></th>
-                <th><%= isEn ? 'Account ID' : '계정(아이디)' %></th>
+                <th><%= isEn ? 'Account' : '계정' %></th>
                 <th><%= isEn ? 'Email' : '이메일' %></th>
-                <th><%= isEn ? 'Name (Profile)' : '이름(정보설정시)' %></th>
-                <th><%= isEn ? 'Phone (Profile)' : '전화번호(정보설정시)' %></th>
+                <th><%= isEn ? 'Name' : '이름' %></th>
+                <th><%= isEn ? 'Phone' : '전화번호' %></th>
                 <th><%= isEn ? 'Level (Rate)' : '등급(적립률)' %></th>
                 <th><%= isEn ? 'Accumulated Amount' : '누적 구매금액' %></th>
                 <th><%= isEn ? 'Total Orders' : '누적구매건수' %></th>
@@ -1090,9 +1090,11 @@
                   <td><%= memberItem.email || '-' %></td>
                   <td><%= memberItem.full_name || '-' %></td>
                   <td><%= memberItem.phone || '-' %></td>
-                  <td>
-                    <span class="chip dark"><%= memberItem.level_name || (isEn ? 'Unassigned' : '미지정') %></span>
-                    <small><%= Number(memberItem.level_point_rate || 0).toFixed(2).replace(/\.00$/, '') %>%</small>
+                  <td class="member-level-cell">
+                    <div class="member-level-inline">
+                      <span class="chip dark"><%= memberItem.level_name || (isEn ? 'Unassigned' : '미지정') %></span>
+                      <small><%= Number(memberItem.level_point_rate || 0).toFixed(2).replace(/\.00$/, '') %>%</small>
+                    </div>
                   </td>
                   <td>₩<%= Number(memberItem.level_applied_amount || 0).toLocaleString('ko-KR') %></td>
                   <td><%= Number(memberItem.order_count || 0).toLocaleString('ko-KR') %></td>

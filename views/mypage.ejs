@@ -13,7 +13,6 @@
 <% const email = profile.email || (ctx.currentUser && ctx.currentUser.email) || '-'; %>
 <% const levelInfo = memberLevelInfo || {}; %>
 <% const levelName = levelInfo.name || (isEn ? 'Unassigned' : '미지정'); %>
-<% const levelRate = Number(levelInfo.pointRate || 0); %>
 
 <section class="block-card">
   <div class="section-head">
@@ -58,7 +57,7 @@
           <div class="mypage-identity-main">
             <h3><%= nickname %></h3>
             <span class="chip dark mypage-level-chip">
-              <%= `${isEn ? 'Level' : '회원등급'}: ${levelName} (${String(levelRate.toFixed(2)).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')}%)` %>
+              <%= levelName %>
             </span>
           </div>
           <p class="mypage-identity-name"><%= fullName %></p>

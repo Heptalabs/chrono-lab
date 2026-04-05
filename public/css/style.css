@@ -3024,6 +3024,20 @@ th {
   min-width: 145px;
 }
 
+.member-admin-table .member-level-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.member-admin-table .member-level-inline small {
+  display: inline;
+  margin-top: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
 .member-admin-table td:nth-child(10) {
   min-width: 120px;
   text-align: right;
