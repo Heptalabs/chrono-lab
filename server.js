@@ -7696,6 +7696,11 @@ function buildAdminDashboardViewData(lang = 'ko', options = {}) {
 
 function renderAdminDashboard(req, res, activeTab, extraData = {}) {
   const productGroupConfigs = getProductGroupConfigs();
+  const menuFieldGroupKeys = productGroupConfigs.map((group) => String(group.key || '').trim()).filter(Boolean);
+  const rawMenuFieldGroupFilter = String(extraData.menuFieldGroupFilter || req.query.fieldGroup || '').trim();
+  const menuFieldGroupFilter = menuFieldGroupKeys.includes(rawMenuFieldGroupFilter)
+    ? rawMenuFieldGroupFilter
+    : '';
   const orderFilters = parseAdminOrderManageQuery(
     {
       orderGroup: extraData.orderGroupFilter || req.query.orderGroup || '',
@@ -7732,6 +7737,7 @@ function renderAdminDashboard(req, res, activeTab, extraData = {}) {
     newsSection: normalizeContentManageSection(extraData.newsSection || req.query.section || ''),
     qcSection: normalizeContentManageSection(extraData.qcSection || req.query.section || ''),
     inquirySection: normalizeInquiryManageSection(extraData.inquirySection || req.query.section || ''),
+    menuFieldGroupFilter,
     orderGroupFilter: orderFilters.orderGroupFilter,
     orderStatusFilter: orderFilters.orderStatusFilter,
     orderDateFrom: orderFilters.orderDateFrom,

@@ -1762,20 +1762,45 @@
                 preferredFieldFilterGroups.length > 0
                   ? [...preferredFieldFilterGroups, ...restFieldFilterGroups]
                   : productGroupConfigList;
+              const requestedMenuFieldGroup = String(menuFieldGroupFilter || '').trim();
+              const availableMenuFieldGroupKeys = fallbackFieldFilterGroups.map((group) => String(group.key || '').trim());
+              const activeMenuFieldGroup =
+                availableMenuFieldGroupKeys.includes(requestedMenuFieldGroup) && requestedMenuFieldGroup
+                  ? requestedMenuFieldGroup
+                  : (availableMenuFieldGroupKeys[0] || '');
+              const menuFieldFilterBaseHref = `/admin/menus?section=fields${isEn ? '&lang=en' : ''}`;
             %>
             <% if (fallbackFieldFilterGroups.length > 0) { %>
               <div class="chip-row menu-field-filter-row" data-menu-field-filter-wrap>
-                <% fallbackFieldFilterGroups.forEach((group, index) => { %>
-                  <button type="button" class="chip <%= index === 0 ? 'dark' : '' %>" data-menu-field-filter="<%= group.key %>">
+                <% fallbackFieldFilterGroups.forEach((group) => { %>
+                  <%
+                    const normalizedGroupKey = String(group.key || '').trim();
+                    const isGroupActive = normalizedGroupKey === activeMenuFieldGroup;
+                  %>
+                  <a
+                    href="<%= `${menuFieldFilterBaseHref}&fieldGroup=${encodeURIComponent(normalizedGroupKey)}` %>"
+                    class="chip <%= isGroupActive ? 'dark' : '' %>"
+                    data-menu-field-filter="<%= normalizedGroupKey %>"
+                    aria-pressed="<%= isGroupActive ? 'true' : 'false' %>"
+                  >
                     <%= group.labelKo || group.key %>
-                  </button>
+                  </a>
                 <% }) %>
               </div>
             <% } %>
           </div>
           <div class="admin-list menu-field-group-list" data-menu-field-list>
             <% productGroupConfigList.forEach((group) => { %>
-              <details class="admin-list-item" open data-menu-field-group="<%= group.key %>">
+              <%
+                const normalizedGroupKey = String(group.key || '').trim();
+                const isGroupActive = normalizedGroupKey === activeMenuFieldGroup;
+              %>
+              <details
+                class="admin-list-item"
+                data-menu-field-group="<%= normalizedGroupKey %>"
+                <%= isGroupActive ? 'open' : '' %>
+                <%= isGroupActive ? '' : 'hidden' %>
+              >
                 <summary><strong><%= group.labelKo || group.key %> / <%= group.labelEn || group.key %></strong> <small>(<%= (group.customFields || []).length %>)</small></summary>
                 <div class="admin-list">
                   <% (group.customFields || []).forEach((field) => { %>
@@ -1831,25 +1856,44 @@
           const buttons = Array.from(wrap.querySelectorAll('[data-menu-field-filter]'));
           const groups = Array.from(list.querySelectorAll('[data-menu-field-group]'));
           if (!buttons.length || !groups.length) return;
+          const normalizeKey = (value) => String(value || '').trim();
 
           const applyFilter = (groupKey) => {
+            const normalizedGroupKey = normalizeKey(groupKey);
+            if (!normalizedGroupKey) return;
             buttons.forEach((button) => {
-              const active = button.dataset.menuFieldFilter === groupKey;
+              const active = normalizeKey(button.dataset.menuFieldFilter) === normalizedGroupKey;
               button.classList.toggle('dark', active);
+              button.setAttribute('aria-pressed', active ? 'true' : 'false');
             });
             groups.forEach((groupNode) => {
-              groupNode.hidden = groupNode.dataset.menuFieldGroup !== groupKey;
+              const isTarget = normalizeKey(groupNode.dataset.menuFieldGroup) === normalizedGroupKey;
+              groupNode.hidden = !isTarget;
+              if (isTarget) {
+                groupNode.setAttribute('open', '');
+              } else {
+                groupNode.removeAttribute('open');
+              }
             });
           };
 
-          const initialGroup = buttons[0].dataset.menuFieldFilter || '';
+          const activeButton = buttons.find((button) => button.classList.contains('dark')) || buttons[0];
+          const initialGroup = normalizeKey(activeButton?.dataset.menuFieldFilter || '');
           if (initialGroup) {
             applyFilter(initialGroup);
           }
 
           buttons.forEach((button) => {
-            button.addEventListener('click', () => {
-              applyFilter(button.dataset.menuFieldFilter || '');
+            button.addEventListener('click', (event) => {
+              event.preventDefault();
+              const nextGroup = normalizeKey(button.dataset.menuFieldFilter || '');
+              applyFilter(nextGroup);
+              if (nextGroup && window.history?.replaceState) {
+                const nextUrl = new URL(window.location.href);
+                nextUrl.searchParams.set('section', 'fields');
+                nextUrl.searchParams.set('fieldGroup', nextGroup);
+                window.history.replaceState(null, '', nextUrl.toString());
+              }
             });
           });
         })();
